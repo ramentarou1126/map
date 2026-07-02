@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>麺Earth MAP</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+JP:wght@400;700;900&display=swap');
 
@@ -215,6 +217,7 @@ body { display: flex; flex-direction: column; }
   font-size: 16px;
   text-shadow: 1px 1px 0 #000;
   box-shadow: 0 0 10px rgba(240,196,25,0.5), 0 3px 6px rgba(0,0,0,0.5);
+  position: relative;
 }
 
 #tooltip {
@@ -392,7 +395,12 @@ input[type="text"]:focus, input[type="number"]:focus {
   align-items: center;
   justify-content: center;
   transition: transform .05s;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
   user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
 .zoom-btn:active {
@@ -401,6 +409,26 @@ input[type="text"]:focus, input[type="number"]:focus {
   border-right: 3px solid #c9c9c9;
   border-bottom: 3px solid #c9c9c9;
   transform: translateY(1px);
+}
+
+/* ===== ライブプレイヤー（Firebase） ===== */
+.live-mark .icon {
+  box-shadow: 0 0 10px rgba(46,204,113,0.7), 0 3px 6px rgba(0,0,0,0.5);
+  border-color: var(--emerald);
+}
+.live-mark .icon::after {
+  content: '';
+  position: absolute;
+  top: -3px; right: -3px;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--emerald);
+  box-shadow: 0 0 4px var(--emerald);
+  animation: liveBlink 1.2s ease-in-out infinite;
+}
+@keyframes liveBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .3; }
 }
 
 
@@ -429,6 +457,7 @@ input[type="text"]:focus, input[type="number"]:focus {
   <div class="tabs">
     <button type="button" class="tab-btn active" data-tab="player"><span class="tab-icon">&#128100;</span>プレイヤー</button>
     <button type="button" class="tab-btn" data-tab="jump"><span class="tab-icon">&#127919;</span>ジャンプ</button>
+    <button type="button" class="tab-btn" data-tab="live"><span class="tab-icon">&#128225;</span>ライブ</button>
   </div>
 
   <div class="tab-content active" id="tab-player">
@@ -464,6 +493,16 @@ input[type="text"]:focus, input[type="number"]:focus {
         <input type="number" id="input-jz" placeholder="-1820">
       </div>
       <button type="button" class="action-btn jump" id="btn-jump">ジャンプ</button>
+    </div>
+  </div>
+
+  <div class="tab-content" id="tab-live">
+    <div class="field-row">
+      <button type="button" class="action-btn grass" id="btn-live-toggle">ライブ表示: OFF</button>
+      <div class="info-chip" id="live-status">未接続</div>
+    </div>
+    <div class="field-row">
+      <div class="info-chip" id="live-count">プレイヤー: 0人</div>
     </div>
   </div>
 </div>
@@ -751,6 +790,7 @@ var pinchActive = false, pinchDist = 0, pinchMidX = 0, pinchMidY = 0;
 var isTap = false, tapStartX = 0, tapStartY = 0, tapStartTime = 0;
 
 function onTouchStart(e) {
+  if (e.target.closest('#zoom-controls')) return;
   e.preventDefault();
   var touches = e.changedTouches;
   for (var i = 0; i < touches.length; i++) {
@@ -832,6 +872,7 @@ function onTouchCancel(e) {
 
 // マウスクリックでもタップ扱い（PC確認用、ドラッグ後は無視）
 mapArea.addEventListener('click', function (e) {
+  if (e.target.closest('#zoom-controls')) return;
   if (mouseMoved) { mouseMoved = false; return; }
   onMapTap(e.clientX, e.clientY);
 });
@@ -878,6 +919,7 @@ var mouseLastX = 0, mouseLastY = 0;
 var mouseMoved = false;
 
 mapArea.addEventListener('mousedown', function (e) {
+  if (e.target.closest('#zoom-controls')) return;
   mouseDragging = true;
   mouseMoved = false;
   mouseLastX = e.clientX;
@@ -921,6 +963,163 @@ document.getElementById('zoom-in').addEventListener('click', function () {
 document.getElementById('zoom-out').addEventListener('click', function () {
   zoomBy(1 / 1.4);
 });
+
+// =====================================================
+// Firebase ライブプレイヤー表示
+// =====================================================
+// ここにFirebaseコンソールの「プロジェクトの設定」→
+// 「全般」タブにある firebaseConfig の値を貼り付けてください。
+// Realtime Database の URL (databaseURL) が特に重要です。
+var firebaseConfig = {
+  apiKey: "AIzaSyBteWiwks-JZutnFPLY9tKWdqseHX-VKqs",
+  authDomain: "men-earth-map.firebaseapp.com",
+  databaseURL: "https://men-earth-map-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "men-earth-map",
+  storageBucket: "men-earth-map.firebasestorage.app",
+  messagingSenderId: "696596920849",
+  appId: "1:696596920849:web:105b41c546d95436804fb0"
+};
+
+var liveActive = false;
+var liveMarkers = {};      // { mcid: {el, x, z} }
+var firebaseApp = null;
+var playersRef = null;
+
+var liveToggleBtn = document.getElementById('btn-live-toggle');
+var liveStatusChip = document.getElementById('live-status');
+var liveCountChip = document.getElementById('live-count');
+
+function initFirebase() {
+  if (firebaseApp) return true;
+  if (typeof firebase === 'undefined') {
+    liveStatusChip.textContent = 'SDK読込失敗（再読込してください）';
+    showError('Firebase SDKの読み込みに失敗しました。ページを再読込するか、通信環境の良い場所でお試しください。');
+    return false;
+  }
+  try {
+    firebaseApp = firebase.initializeApp(firebaseConfig);
+    playersRef = firebase.database().ref('players');
+    return true;
+  } catch (e) {
+    console.error(e);
+    var msg = (e && e.message) ? e.message : String(e);
+    liveStatusChip.textContent = '初期化エラー: ' + msg;
+    showError('Firebaseの初期化に失敗しました: ' + msg);
+    return false;
+  }
+}
+
+function hueFromString(str) {
+  var hue = 0;
+  for (var i = 0; i < str.length; i++) { hue = (hue + str.charCodeAt(i) * 7) % 360; }
+  return hue;
+}
+
+function upsertLiveMarker(mcid, x, z) {
+  var entry = liveMarkers[mcid];
+  if (!entry) {
+    var el = document.createElement('div');
+    el.className = 'player-mark live-mark';
+
+    var label = document.createElement('div');
+    label.className = 'label';
+    label.textContent = mcid;
+
+    var icon = document.createElement('div');
+    icon.className = 'icon';
+    icon.textContent = mcid.charAt(0).toUpperCase();
+    icon.style.background = 'hsl(' + hueFromString(mcid) + ',55%,40%)';
+
+    el.appendChild(label);
+    el.appendChild(icon);
+    mapArea.appendChild(el);
+
+    entry = { el: el, x: x, z: z };
+    liveMarkers[mcid] = entry;
+  }
+  entry.x = x;
+  entry.z = z;
+  var p = mcToPixel(x, z);
+  entry.el.style.left = p.x + 'px';
+  entry.el.style.top = p.y + 'px';
+}
+
+function removeLiveMarker(mcid) {
+  var entry = liveMarkers[mcid];
+  if (!entry) return;
+  entry.el.parentNode.removeChild(entry.el);
+  delete liveMarkers[mcid];
+}
+
+function clearAllLiveMarkers() {
+  Object.keys(liveMarkers).forEach(removeLiveMarker);
+}
+
+function updateLiveMarkerPositions() {
+  Object.keys(liveMarkers).forEach(function (mcid) {
+    var entry = liveMarkers[mcid];
+    var p = mcToPixel(entry.x, entry.z);
+    entry.el.style.left = p.x + 'px';
+    entry.el.style.top = p.y + 'px';
+  });
+}
+
+function startLive() {
+  if (!initFirebase()) return;
+  liveStatusChip.textContent = '接続中...';
+
+  playersRef.on('value', function (snapshot) {
+    var data = snapshot.val() || {};
+    var seenIds = {};
+
+    Object.keys(data).forEach(function (mcid) {
+      var p = data[mcid];
+      if (!p || typeof p.x !== 'number' || typeof p.z !== 'number') return;
+      seenIds[mcid] = true;
+      upsertLiveMarker(mcid, p.x, p.z);
+    });
+
+    // データベースから消えたプレイヤーのマーカーを除去
+    Object.keys(liveMarkers).forEach(function (mcid) {
+      if (!seenIds[mcid]) removeLiveMarker(mcid);
+    });
+
+    liveStatusChip.textContent = '接続中（リアルタイム）';
+    liveCountChip.textContent = 'プレイヤー: ' + Object.keys(seenIds).length + '人';
+  }, function (error) {
+    console.error(error);
+    var msg = (error && error.message) ? error.message : String(error);
+    liveStatusChip.textContent = 'エラー: ' + msg;
+    showError('Firebase接続エラー: ' + msg);
+  });
+}
+
+function stopLive() {
+  if (playersRef) playersRef.off('value');
+  clearAllLiveMarkers();
+  liveStatusChip.textContent = '未接続';
+  liveCountChip.textContent = 'プレイヤー: 0人';
+}
+
+liveToggleBtn.addEventListener('click', function () {
+  liveActive = !liveActive;
+  if (liveActive) {
+    liveToggleBtn.textContent = 'ライブ表示: ON';
+    liveToggleBtn.classList.add('danger');
+    startLive();
+  } else {
+    liveToggleBtn.textContent = 'ライブ表示: OFF';
+    liveToggleBtn.classList.remove('danger');
+    stopLive();
+  }
+});
+
+// 既存のupdateMarkerPositions（手動配置マーカー用）にライブマーカーの更新も連動させる
+var _origUpdateMarkerPositions = updateMarkerPositions;
+updateMarkerPositions = function () {
+  _origUpdateMarkerPositions();
+  updateLiveMarkerPositions();
+};
 
 // ===== 初期化 =====
 window.addEventListener('resize', fitView);
