@@ -391,6 +391,13 @@ input[type="text"]:focus, input[type="number"]:focus {
   border: 2px solid var(--panel-border);
   border-radius: 4px;
   padding: 6px 10px;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.live-list-item:hover,
+.live-list-item:active {
+  background: rgba(46,204,113,0.15);
+  border-color: var(--emerald);
 }
 .live-list-item .avatar {
   width: 28px;
@@ -940,6 +947,27 @@ function zoomBy(factor) {
   applyView();
 }
 
+// 指定したMC座標を画面中央に置き、指定倍率までズームする
+function zoomToMcCoord(mcX, mcZ, targetScale) {
+  var rect = mapArea.getBoundingClientRect();
+  var rx = (mcX - MAP_BOUNDS.x1) / (MAP_BOUNDS.x2 - MAP_BOUNDS.x1);
+  var rz = (mcZ - MAP_BOUNDS.z1) / (MAP_BOUNDS.z2 - MAP_BOUNDS.z1);
+  var minScale = Math.min(rect.width / IMG_W, rect.height / IMG_H);
+  var newScale = Math.min(Math.max(targetScale, minScale), 15);
+
+  // 画像内でのその座標のピクセル位置（スケール適用後）
+  var imgX = rx * IMG_W * newScale;
+  var imgY = rz * IMG_H * newScale;
+
+  // 画面中央にその点が来るようview.x, view.yを設定
+  view.x = rect.width / 2 - imgX;
+  view.y = rect.height / 2 - imgY;
+  view.scale = newScale;
+
+  clampView();
+  applyView();
+}
+
 function bindZoomButton(el, factor) {
   var fired = false;
   function trigger(e) {
@@ -1114,6 +1142,12 @@ function renderLivePlayerList(data) {
     info.appendChild(coordsEl);
     item.appendChild(avatar);
     item.appendChild(info);
+
+    item.addEventListener('click', function () {
+      zoomToMcCoord(p.x, p.z, 6);
+      switchTab('live');
+    });
+
     livePlayerListEl.appendChild(item);
   });
 }
