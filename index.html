@@ -144,6 +144,10 @@ body { display: flex; flex-direction: column; }
   image-rendering: pixelated;
   display: block;
   box-shadow: 0 0 40px rgba(0,0,0,0.6) inset;
+  -webkit-user-drag: none;
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: none;
 }
 #tap-mark {
   position: absolute;
@@ -225,6 +229,10 @@ body { display: flex; flex-direction: column; }
   height: 100%;
   object-fit: cover;
   image-rendering: pixelated;
+  -webkit-user-drag: none;
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: none;
 }
 
 #tooltip {
@@ -404,9 +412,27 @@ input[type="text"]:focus, input[type="number"]:focus {
   height: 28px;
   border-radius: 3px;
   border: 2px solid var(--emerald);
-  image-rendering: pixelated;
   flex-shrink: 0;
   background: #222;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 900;
+  font-size: 13px;
+  font-family: var(--font-body);
+  text-shadow: 1px 1px 0 #000;
+  overflow: hidden;
+}
+.live-list-item .avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  image-rendering: pixelated;
+  -webkit-user-drag: none;
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: none;
 }
 .live-list-item .info {
   display: flex;
@@ -1050,17 +1076,19 @@ function upsertLiveMarker(mcid, x, z) {
     var icon = document.createElement('div');
     icon.className = 'icon';
     icon.style.background = 'hsl(' + hueFromString(mcid) + ',55%,40%)';
+    // 先に頭文字を表示しておき、アバター画像が読み込めたら差し替える
+    icon.textContent = mcid.charAt(0).toUpperCase();
 
-    var avatarImg = document.createElement('img');
-    avatarImg.src = 'https://crafatar.com/avatars/' + encodeURIComponent(mcid) + '?size=32&overlay';
+    var avatarImg = new Image();
     avatarImg.alt = mcid;
-    avatarImg.loading = 'lazy';
-    avatarImg.onerror = function () {
-      // 画像取得失敗時はイニシャル文字にフォールバック
-      icon.removeChild(avatarImg);
-      icon.textContent = mcid.charAt(0).toUpperCase();
+    avatarImg.onload = function () {
+      icon.textContent = '';
+      icon.appendChild(avatarImg);
     };
-    icon.appendChild(avatarImg);
+    avatarImg.onerror = function () {
+      // 読み込み失敗時は頭文字のまま（何もしない）
+    };
+    avatarImg.src = 'https://crafatar.com/avatars/' + encodeURIComponent(mcid) + '?size=32&overlay';
 
     el.appendChild(label);
     el.appendChild(icon);
@@ -1120,12 +1148,21 @@ function renderLivePlayerList(data) {
     var item = document.createElement('div');
     item.className = 'live-list-item';
 
-    var avatar = document.createElement('img');
-    avatar.className = 'avatar';
-    avatar.src = 'https://crafatar.com/avatars/' + encodeURIComponent(mcid) + '?size=28&overlay';
-    avatar.alt = mcid;
-    avatar.loading = 'lazy';
-    avatar.onerror = function () { avatar.style.visibility = 'hidden'; };
+    var avatarWrap = document.createElement('div');
+    avatarWrap.className = 'avatar';
+    avatarWrap.style.background = 'hsl(' + hueFromString(mcid) + ',55%,40%)';
+    avatarWrap.textContent = mcid.charAt(0).toUpperCase();
+
+    var avatarImg = new Image();
+    avatarImg.alt = mcid;
+    avatarImg.onload = function () {
+      avatarWrap.textContent = '';
+      avatarWrap.appendChild(avatarImg);
+    };
+    avatarImg.onerror = function () {
+      // 読み込み失敗時は頭文字のまま（何もしない）
+    };
+    avatarImg.src = 'https://crafatar.com/avatars/' + encodeURIComponent(mcid) + '?size=28&overlay';
 
     var info = document.createElement('div');
     info.className = 'info';
@@ -1140,7 +1177,7 @@ function renderLivePlayerList(data) {
 
     info.appendChild(nameEl);
     info.appendChild(coordsEl);
-    item.appendChild(avatar);
+    item.appendChild(avatarWrap);
     item.appendChild(info);
 
     (function (px, pz) {
