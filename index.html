@@ -218,6 +218,13 @@ body { display: flex; flex-direction: column; }
   text-shadow: 1px 1px 0 #000;
   box-shadow: 0 0 10px rgba(240,196,25,0.5), 0 3px 6px rgba(0,0,0,0.5);
   position: relative;
+  overflow: hidden;
+}
+.player-mark .icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  image-rendering: pixelated;
 }
 
 #tooltip {
@@ -367,6 +374,61 @@ input[type="text"]:focus, input[type="number"]:focus {
 }
 .info-chip b { color: var(--gold); }
 
+/* ===== ライブプレイヤーリスト ===== */
+#live-player-list {
+  margin-top: 10px;
+  max-height: 240px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.live-list-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(0,0,0,0.35);
+  border: 2px solid var(--panel-border);
+  border-radius: 4px;
+  padding: 6px 10px;
+}
+.live-list-item .avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 3px;
+  border: 2px solid var(--emerald);
+  image-rendering: pixelated;
+  flex-shrink: 0;
+  background: #222;
+}
+.live-list-item .info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.live-list-item .mcid {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.live-list-item .coords {
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.live-list-empty {
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--text-dim);
+  text-align: center;
+  padding: 14px 0;
+}
+
 /* ===== ズームコントロール ===== */
 #zoom-controls {
   position: absolute;
@@ -455,31 +517,8 @@ input[type="text"]:focus, input[type="number"]:focus {
 
 <div id="panel">
   <div class="tabs">
-    <button type="button" class="tab-btn active" data-tab="player"><span class="tab-icon">&#128100;</span>プレイヤー</button>
+    <button type="button" class="tab-btn active" data-tab="live" id="tab-btn-players"><span class="tab-icon">&#128100;</span>プレイヤー</button>
     <button type="button" class="tab-btn" data-tab="jump"><span class="tab-icon">&#127919;</span>ジャンプ</button>
-    <button type="button" class="tab-btn" data-tab="live"><span class="tab-icon">&#128225;</span>ライブ</button>
-  </div>
-
-  <div class="tab-content active" id="tab-player">
-    <div class="field-row">
-      <div class="field-group">
-        <div class="field-label">MCID</div>
-        <input type="text" id="input-mcid" placeholder="PlayerName">
-      </div>
-      <div class="field-group">
-        <div class="field-label">MC X</div>
-        <input type="number" id="input-px" placeholder="7152">
-      </div>
-      <div class="field-group">
-        <div class="field-label">MC Z</div>
-        <input type="number" id="input-pz" placeholder="-1820">
-      </div>
-      <button type="button" class="action-btn" id="btn-place">配置</button>
-      <button type="button" class="action-btn danger" id="btn-remove">削除</button>
-    </div>
-    <div class="field-row">
-      <div class="info-chip" id="player-info">マーカー未配置</div>
-    </div>
   </div>
 
   <div class="tab-content" id="tab-jump">
@@ -496,7 +535,7 @@ input[type="text"]:focus, input[type="number"]:focus {
     </div>
   </div>
 
-  <div class="tab-content" id="tab-live">
+  <div class="tab-content active" id="tab-live">
     <div class="field-row">
       <button type="button" class="action-btn grass" id="btn-live-toggle">ライブ表示: OFF</button>
       <div class="info-chip" id="live-status">未接続</div>
@@ -504,6 +543,7 @@ input[type="text"]:focus, input[type="number"]:focus {
     <div class="field-row">
       <div class="info-chip" id="live-count">プレイヤー: 0人</div>
     </div>
+    <div id="live-player-list"></div>
   </div>
 </div>
 
@@ -533,7 +573,6 @@ var tapMark = document.getElementById('tap-mark');
 var jumpMark = document.getElementById('jump-mark');
 var tooltip = document.getElementById('tooltip');
 var hdrInfo = document.getElementById('hdr-info');
-var playerInfo = document.getElementById('player-info');
 
 // ===== ビュー計算 =====
 function fitView() {
@@ -617,70 +656,6 @@ var currentPlayerMc = null;
 
 function isValidMcid(id) {
   return /^[A-Za-z0-9_]{3,16}$/.test(id);
-}
-
-function placePlayer() {
-  var idRaw = document.getElementById('input-mcid').value;
-  var id = idRaw.trim();
-  var xStr = document.getElementById('input-px').value;
-  var zStr = document.getElementById('input-pz').value;
-  var x = parseFloat(xStr);
-  var z = parseFloat(zStr);
-
-  if (id.length === 0) {
-    showError('MCID欄が空です。入力してください。');
-    return;
-  }
-  if (!isValidMcid(id)) {
-    showError('MCID「' + id + '」は使用できません。半角英数字とアンダースコアのみ、3〜16文字で入力してください。');
-    return;
-  }
-  if (isNaN(x) || isNaN(z)) {
-    showError('X座標とZ座標を数字で入力してください。');
-    return;
-  }
-
-  currentPlayerMc = { x: x, z: z };
-
-  if (playerMarkerEl) {
-    playerMarkerEl.parentNode.removeChild(playerMarkerEl);
-    playerMarkerEl = null;
-  }
-  jumpMark.style.display = 'none';
-
-  var el = document.createElement('div');
-  el.className = 'player-mark';
-
-  var label = document.createElement('div');
-  label.className = 'label';
-  label.textContent = id;
-
-  var icon = document.createElement('div');
-  icon.className = 'icon';
-  icon.textContent = id.charAt(0).toUpperCase();
-  var hue = 0;
-  for (var i = 0; i < id.length; i++) { hue = (hue + id.charCodeAt(i) * 7) % 360; }
-  icon.style.background = 'hsl(' + hue + ',55%,40%)';
-
-  el.appendChild(label);
-  el.appendChild(icon);
-  mapArea.appendChild(el);
-  playerMarkerEl = el;
-
-  var geo = mcToGeo(x, z);
-  playerInfo.innerHTML = '<b>' + escapeHtml(id) + '</b> X:' + x + ' Z:' + z + ' (' + geo.lat + '\u00b0N, ' + geo.lng + '\u00b0E)';
-  showSuccess('配置しました: ' + id);
-
-  updateMarkerPositions();
-}
-
-function removePlayer() {
-  if (playerMarkerEl) {
-    playerMarkerEl.parentNode.removeChild(playerMarkerEl);
-    playerMarkerEl = null;
-  }
-  currentPlayerMc = null;
-  playerInfo.textContent = 'マーカー未配置';
 }
 
 // ===== ジャンプ =====
@@ -883,8 +858,6 @@ mapArea.addEventListener('touchend', onTouchEnd, { passive: false });
 mapArea.addEventListener('touchcancel', onTouchCancel, { passive: false });
 
 // ===== ボタン結線（addEventListenerで確実に） =====
-document.getElementById('btn-place').addEventListener('click', placePlayer);
-document.getElementById('btn-remove').addEventListener('click', removePlayer);
 document.getElementById('btn-jump').addEventListener('click', function () {
   doJumpTo();
   showJumpMark();
@@ -896,6 +869,16 @@ for (var t = 0; t < tabButtons.length; t++) {
     switchTab(this.getAttribute('data-tab'));
   });
 }
+
+// 「プレイヤー」タブ（実質ライブタブ）を押したら自動でライブ表示をONにする
+document.getElementById('tab-btn-players').addEventListener('click', function () {
+  if (!liveActive) {
+    liveActive = true;
+    liveToggleBtn.textContent = 'ライブ表示: ON';
+    liveToggleBtn.classList.add('danger');
+    startLive();
+  }
+});
 
 // ===== PC: マウスホイールでズーム =====
 mapArea.addEventListener('wheel', function (e) {
@@ -957,12 +940,23 @@ function zoomBy(factor) {
   applyView();
 }
 
-document.getElementById('zoom-in').addEventListener('click', function () {
-  zoomBy(1.4);
-});
-document.getElementById('zoom-out').addEventListener('click', function () {
-  zoomBy(1 / 1.4);
-});
+function bindZoomButton(el, factor) {
+  var fired = false;
+  function trigger(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (fired) return;
+    fired = true;
+    zoomBy(factor);
+    setTimeout(function () { fired = false; }, 150);
+  }
+  el.addEventListener('touchstart', trigger, { passive: false });
+  el.addEventListener('mousedown', trigger);
+  el.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); });
+}
+
+bindZoomButton(document.getElementById('zoom-in'), 1.4);
+bindZoomButton(document.getElementById('zoom-out'), 1 / 1.4);
 
 // =====================================================
 // Firebase ライブプレイヤー表示
@@ -1027,8 +1021,18 @@ function upsertLiveMarker(mcid, x, z) {
 
     var icon = document.createElement('div');
     icon.className = 'icon';
-    icon.textContent = mcid.charAt(0).toUpperCase();
     icon.style.background = 'hsl(' + hueFromString(mcid) + ',55%,40%)';
+
+    var avatarImg = document.createElement('img');
+    avatarImg.src = 'https://crafatar.com/avatars/' + encodeURIComponent(mcid) + '?size=32&overlay';
+    avatarImg.alt = mcid;
+    avatarImg.loading = 'lazy';
+    avatarImg.onerror = function () {
+      // 画像取得失敗時はイニシャル文字にフォールバック
+      icon.removeChild(avatarImg);
+      icon.textContent = mcid.charAt(0).toUpperCase();
+    };
+    icon.appendChild(avatarImg);
 
     el.appendChild(label);
     el.appendChild(icon);
@@ -1064,6 +1068,56 @@ function updateLiveMarkerPositions() {
   });
 }
 
+var livePlayerListEl = document.getElementById('live-player-list');
+
+function renderLivePlayerList(data) {
+  livePlayerListEl.innerHTML = '';
+  var mcids = Object.keys(data).filter(function (mcid) {
+    var p = data[mcid];
+    return p && typeof p.x === 'number' && typeof p.z === 'number';
+  });
+
+  if (mcids.length === 0) {
+    var empty = document.createElement('div');
+    empty.className = 'live-list-empty';
+    empty.textContent = 'オンラインのプレイヤーがいません';
+    livePlayerListEl.appendChild(empty);
+    return;
+  }
+
+  mcids.sort(function (a, b) { return a.localeCompare(b); });
+
+  mcids.forEach(function (mcid) {
+    var p = data[mcid];
+    var item = document.createElement('div');
+    item.className = 'live-list-item';
+
+    var avatar = document.createElement('img');
+    avatar.className = 'avatar';
+    avatar.src = 'https://crafatar.com/avatars/' + encodeURIComponent(mcid) + '?size=28&overlay';
+    avatar.alt = mcid;
+    avatar.loading = 'lazy';
+    avatar.onerror = function () { avatar.style.visibility = 'hidden'; };
+
+    var info = document.createElement('div');
+    info.className = 'info';
+
+    var nameEl = document.createElement('div');
+    nameEl.className = 'mcid';
+    nameEl.textContent = mcid;
+
+    var coordsEl = document.createElement('div');
+    coordsEl.className = 'coords';
+    coordsEl.textContent = 'X: ' + Math.round(p.x) + '  Z: ' + Math.round(p.z);
+
+    info.appendChild(nameEl);
+    info.appendChild(coordsEl);
+    item.appendChild(avatar);
+    item.appendChild(info);
+    livePlayerListEl.appendChild(item);
+  });
+}
+
 function startLive() {
   if (!initFirebase()) return;
   liveStatusChip.textContent = '接続中...';
@@ -1084,6 +1138,8 @@ function startLive() {
       if (!seenIds[mcid]) removeLiveMarker(mcid);
     });
 
+    renderLivePlayerList(data);
+
     liveStatusChip.textContent = '接続中（リアルタイム）';
     liveCountChip.textContent = 'プレイヤー: ' + Object.keys(seenIds).length + '人';
   }, function (error) {
@@ -1097,6 +1153,7 @@ function startLive() {
 function stopLive() {
   if (playersRef) playersRef.off('value');
   clearAllLiveMarkers();
+  livePlayerListEl.innerHTML = '';
   liveStatusChip.textContent = '未接続';
   liveCountChip.textContent = 'プレイヤー: 0人';
 }
