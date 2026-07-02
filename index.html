@@ -1143,10 +1143,18 @@ function renderLivePlayerList(data) {
     item.appendChild(avatar);
     item.appendChild(info);
 
-    item.addEventListener('click', function () {
-      zoomToMcCoord(p.x, p.z, 6);
-      switchTab('live');
-    });
+    (function (px, pz) {
+      var fired = false;
+      function handleActivate(e) {
+        if (e) e.preventDefault();
+        if (fired) return;
+        fired = true;
+        zoomToMcCoord(px, pz, 6);
+        setTimeout(function () { fired = false; }, 300);
+      }
+      item.addEventListener('touchend', handleActivate, { passive: false });
+      item.addEventListener('click', handleActivate);
+    })(p.x, p.z);
 
     livePlayerListEl.appendChild(item);
   });
