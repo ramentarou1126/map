@@ -462,6 +462,52 @@ input[type="text"]:focus, input[type="number"]:focus {
   padding: 14px 0;
 }
 
+/* ===== マップ外プレイヤーセクション ===== */
+.section-divider {
+  height: 2px;
+  background: var(--panel-border);
+  margin: 4px 0 10px;
+  border-radius: 1px;
+}
+.section-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.section-title-icon {
+  font-size: 14px;
+}
+.section-title-text {
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  color: var(--gold);
+  text-shadow: 1px 1px 0 #000;
+  flex: 1;
+}
+#outside-player-list {
+  max-height: 200px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.outside-list-item {
+  border-color: var(--gold-dark) !important;
+}
+.outside-list-item:hover,
+.outside-list-item:active {
+  background: rgba(240,196,25,0.15) !important;
+  border-color: var(--gold) !important;
+}
+.outside-list-item .avatar {
+  border-color: var(--gold-dark) !important;
+}
+.outside-list-item .coords {
+  color: var(--gold);
+}
+
 /* ===== ズームコントロール ===== */
 #zoom-controls {
   position: absolute;
@@ -577,6 +623,16 @@ input[type="text"]:focus, input[type="number"]:focus {
       <div class="info-chip" id="live-count">プレイヤー: 0人</div>
     </div>
     <div id="live-player-list"></div>
+
+    <div id="outside-section" style="display:none; margin-top:14px;">
+      <div class="section-divider"></div>
+      <div class="section-title-row">
+        <span class="section-title-icon">&#127757;</span>
+        <span class="section-title-text">マップ外に出た記録</span>
+        <span class="info-chip" id="outside-count">0人</span>
+      </div>
+      <div id="outside-player-list"></div>
+    </div>
   </div>
 </div>
 
@@ -1125,76 +1181,195 @@ function updateLiveMarkerPositions() {
 }
 
 var livePlayerListEl = document.getElementById('live-player-list');
+var outsideSectionEl = document.getElementById('outside-section');
+var outsidePlayerListEl = document.getElementById('outside-player-list');
+var outsideCountEl = document.getElementById('outside-count');
+
+// 座標がマップ範囲内かどうか
+function isInsideMapBounds(x, z) {
+  return x >= MAP_BOUNDS.x1 && x <= MAP_BOUNDS.x2 &&
+         z >= MAP_BOUNDS.z1 && z <= MAP_BOUNDS.z2;
+}
+
+// マップ外に出た記録。一度記録されたプレイヤーは、後でマップ内に戻っても
+// このセッション中はずっとリストに残り続ける。
+// { mcid: { x, z, time(Dateオブジェクト) } }
+var outsideHistory = {};
+
+function formatTime(date) {
+  var hh = String(date.getHours()).padStart(2, '0');
+  var mm = String(date.getMinutes()).padStart(2, '0');
+  var ss = String(date.getSeconds()).padStart(2, '0');
+  return hh + ':' + mm + ':' + ss;
+}
+
+// 1人分のリスト項目DOMを作る（範囲内リスト用）
+function buildPlayerListItem(mcid, p) {
+  var item = document.createElement('div');
+  item.className = 'live-list-item';
+
+  var avatarWrap = document.createElement('div');
+  avatarWrap.className = 'avatar';
+  avatarWrap.style.background = 'hsl(' + hueFromString(mcid) + ',55%,40%)';
+  avatarWrap.textContent = mcid.charAt(0).toUpperCase();
+
+  var avatarImg = new Image();
+  avatarImg.alt = mcid;
+  avatarImg.onload = function () {
+    avatarWrap.textContent = '';
+    avatarWrap.appendChild(avatarImg);
+  };
+  avatarImg.onerror = function () {
+    // 読み込み失敗時は頭文字のまま（何もしない）
+  };
+  avatarImg.src = 'https://crafatar.com/avatars/' + encodeURIComponent(mcid) + '?size=28&overlay';
+
+  var info = document.createElement('div');
+  info.className = 'info';
+
+  var nameEl = document.createElement('div');
+  nameEl.className = 'mcid';
+  nameEl.textContent = mcid;
+
+  var coordsEl = document.createElement('div');
+  coordsEl.className = 'coords';
+  coordsEl.textContent = 'X: ' + Math.round(p.x) + '  Z: ' + Math.round(p.z);
+
+  info.appendChild(nameEl);
+  info.appendChild(coordsEl);
+  item.appendChild(avatarWrap);
+  item.appendChild(info);
+
+  (function (px, pz) {
+    var fired = false;
+    function handleActivate(e) {
+      if (e) e.preventDefault();
+      if (fired) return;
+      fired = true;
+      zoomToMcCoord(px, pz, 6);
+      setTimeout(function () { fired = false; }, 300);
+    }
+    item.addEventListener('touchend', handleActivate, { passive: false });
+    item.addEventListener('click', handleActivate);
+  })(p.x, p.z);
+
+  return item;
+}
+
+// マップ外に出た記録1件分のリスト項目DOMを作る
+function buildOutsideHistoryItem(mcid, record) {
+  var item = document.createElement('div');
+  item.className = 'live-list-item outside-list-item';
+
+  var avatarWrap = document.createElement('div');
+  avatarWrap.className = 'avatar';
+  avatarWrap.style.background = 'hsl(' + hueFromString(mcid) + ',55%,40%)';
+  avatarWrap.textContent = mcid.charAt(0).toUpperCase();
+
+  var avatarImg = new Image();
+  avatarImg.alt = mcid;
+  avatarImg.onload = function () {
+    avatarWrap.textContent = '';
+    avatarWrap.appendChild(avatarImg);
+  };
+  avatarImg.onerror = function () {
+    // 読み込み失敗時は頭文字のまま（何もしない）
+  };
+  avatarImg.src = 'https://crafatar.com/avatars/' + encodeURIComponent(mcid) + '?size=28&overlay';
+
+  var info = document.createElement('div');
+  info.className = 'info';
+
+  var nameEl = document.createElement('div');
+  nameEl.className = 'mcid';
+  nameEl.textContent = mcid;
+
+  var coordsEl = document.createElement('div');
+  coordsEl.className = 'coords';
+  coordsEl.textContent = 'X: ' + Math.round(record.x) + '  Z: ' + Math.round(record.z) + '  ' + formatTime(record.time) + ' に検出';
+
+  info.appendChild(nameEl);
+  info.appendChild(coordsEl);
+  item.appendChild(avatarWrap);
+  item.appendChild(info);
+
+  (function (px, pz) {
+    var fired = false;
+    function handleActivate(e) {
+      if (e) e.preventDefault();
+      if (fired) return;
+      fired = true;
+      // マップ端にクランプしてズーム（大まかな方向確認用）
+      var cx = Math.min(Math.max(px, MAP_BOUNDS.x1), MAP_BOUNDS.x2);
+      var cz = Math.min(Math.max(pz, MAP_BOUNDS.z1), MAP_BOUNDS.z2);
+      zoomToMcCoord(cx, cz, 2);
+      setTimeout(function () { fired = false; }, 300);
+    }
+    item.addEventListener('touchend', handleActivate, { passive: false });
+    item.addEventListener('click', handleActivate);
+  })(record.x, record.z);
+
+  return item;
+}
+
+function renderOutsideHistory() {
+  outsidePlayerListEl.innerHTML = '';
+  var mcids = Object.keys(outsideHistory);
+
+  if (mcids.length === 0) {
+    outsideSectionEl.style.display = 'none';
+    return;
+  }
+
+  outsideSectionEl.style.display = 'block';
+  outsideCountEl.textContent = mcids.length + '人';
+
+  // 検出時刻が新しい順に並べる
+  mcids.sort(function (a, b) {
+    return outsideHistory[b].time - outsideHistory[a].time;
+  });
+
+  mcids.forEach(function (mcid) {
+    outsidePlayerListEl.appendChild(buildOutsideHistoryItem(mcid, outsideHistory[mcid]));
+  });
+}
 
 function renderLivePlayerList(data) {
   livePlayerListEl.innerHTML = '';
-  var mcids = Object.keys(data).filter(function (mcid) {
+
+  var allIds = Object.keys(data).filter(function (mcid) {
     var p = data[mcid];
     return p && typeof p.x === 'number' && typeof p.z === 'number';
   });
 
-  if (mcids.length === 0) {
+  // マップ範囲内にいるプレイヤーのみ、通常リストに表示
+  var insideIds = [];
+  allIds.forEach(function (mcid) {
+    var p = data[mcid];
+    if (isInsideMapBounds(p.x, p.z)) {
+      insideIds.push(mcid);
+    } else {
+      // 範囲外に出ていたら記録（既存の記録があれば座標・時刻を更新）
+      outsideHistory[mcid] = { x: p.x, z: p.z, time: new Date() };
+    }
+  });
+
+  insideIds.sort(function (a, b) { return a.localeCompare(b); });
+
+  // ---- 範囲内リスト ----
+  if (insideIds.length === 0) {
     var empty = document.createElement('div');
     empty.className = 'live-list-empty';
     empty.textContent = 'オンラインのプレイヤーがいません';
     livePlayerListEl.appendChild(empty);
-    return;
+  } else {
+    insideIds.forEach(function (mcid) {
+      livePlayerListEl.appendChild(buildPlayerListItem(mcid, data[mcid]));
+    });
   }
 
-  mcids.sort(function (a, b) { return a.localeCompare(b); });
-
-  mcids.forEach(function (mcid) {
-    var p = data[mcid];
-    var item = document.createElement('div');
-    item.className = 'live-list-item';
-
-    var avatarWrap = document.createElement('div');
-    avatarWrap.className = 'avatar';
-    avatarWrap.style.background = 'hsl(' + hueFromString(mcid) + ',55%,40%)';
-    avatarWrap.textContent = mcid.charAt(0).toUpperCase();
-
-    var avatarImg = new Image();
-    avatarImg.alt = mcid;
-    avatarImg.onload = function () {
-      avatarWrap.textContent = '';
-      avatarWrap.appendChild(avatarImg);
-    };
-    avatarImg.onerror = function () {
-      // 読み込み失敗時は頭文字のまま（何もしない）
-    };
-    avatarImg.src = 'https://crafatar.com/avatars/' + encodeURIComponent(mcid) + '?size=28&overlay';
-
-    var info = document.createElement('div');
-    info.className = 'info';
-
-    var nameEl = document.createElement('div');
-    nameEl.className = 'mcid';
-    nameEl.textContent = mcid;
-
-    var coordsEl = document.createElement('div');
-    coordsEl.className = 'coords';
-    coordsEl.textContent = 'X: ' + Math.round(p.x) + '  Z: ' + Math.round(p.z);
-
-    info.appendChild(nameEl);
-    info.appendChild(coordsEl);
-    item.appendChild(avatarWrap);
-    item.appendChild(info);
-
-    (function (px, pz) {
-      var fired = false;
-      function handleActivate(e) {
-        if (e) e.preventDefault();
-        if (fired) return;
-        fired = true;
-        zoomToMcCoord(px, pz, 6);
-        setTimeout(function () { fired = false; }, 300);
-      }
-      item.addEventListener('touchend', handleActivate, { passive: false });
-      item.addEventListener('click', handleActivate);
-    })(p.x, p.z);
-
-    livePlayerListEl.appendChild(item);
-  });
+  // ---- マップ外に出た記録（ずっと蓄積） ----
+  renderOutsideHistory();
 }
 
 function startLive() {
@@ -1209,7 +1384,12 @@ function startLive() {
       var p = data[mcid];
       if (!p || typeof p.x !== 'number' || typeof p.z !== 'number') return;
       seenIds[mcid] = true;
-      upsertLiveMarker(mcid, p.x, p.z);
+      // マップ範囲内のプレイヤーだけ地図上にマーカーを出す
+      if (isInsideMapBounds(p.x, p.z)) {
+        upsertLiveMarker(mcid, p.x, p.z);
+      } else {
+        removeLiveMarker(mcid);
+      }
     });
 
     // データベースから消えたプレイヤーのマーカーを除去
@@ -1235,6 +1415,8 @@ function stopLive() {
   livePlayerListEl.innerHTML = '';
   liveStatusChip.textContent = '未接続';
   liveCountChip.textContent = 'プレイヤー: 0人';
+  // マップ外に出た記録はライブ表示OFFにしても消さず、そのまま表示し続ける
+  renderOutsideHistory();
 }
 
 liveToggleBtn.addEventListener('click', function () {
