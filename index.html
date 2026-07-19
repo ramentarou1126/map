@@ -1088,6 +1088,7 @@ var liveActive = false;
 var liveMarkers = {};      // { mcid: {el, x, z} }
 var firebaseApp = null;
 var playersRef = null;
+var outsideHistoryRef = null;
 
 var liveToggleBtn = document.getElementById('btn-live-toggle');
 var liveStatusChip = document.getElementById('live-status');
@@ -1103,6 +1104,7 @@ function initFirebase() {
   try {
     firebaseApp = firebase.initializeApp(firebaseConfig);
     playersRef = firebase.database().ref('players');
+    outsideHistoryRef = firebase.database().ref('outside_history');
     return true;
   } catch (e) {
     console.error(e);
@@ -1191,8 +1193,8 @@ function isInsideMapBounds(x, z) {
          z >= MAP_BOUNDS.z1 && z <= MAP_BOUNDS.z2;
 }
 
-// マップ外に出た記録。一度記録されたプレイヤーは、後でマップ内に戻っても
-// このセッション中はずっとリストに残り続ける。
+// マップ外に出た記録。Firebaseの outside_history ノードから受信した
+// データをそのままキャッシュしている（Minecraftサーバー側が記録する）。
 // { mcid: { x, z, time(Dateオブジェクト) } }
 var outsideHistory = {};
 
@@ -1343,15 +1345,11 @@ function renderLivePlayerList(data) {
   });
 
   // マップ範囲内にいるプレイヤーのみ、通常リストに表示
-  var insideIds = [];
-  allIds.forEach(function (mcid) {
+  // （範囲外に出た記録はMinecraftサーバー側がFirebaseに直接書き込むため、
+  //   ここでは何もしない）
+  var insideIds = allIds.filter(function (mcid) {
     var p = data[mcid];
-    if (isInsideMapBounds(p.x, p.z)) {
-      insideIds.push(mcid);
-    } else {
-      // 範囲外に出ていたら記録（既存の記録があれば座標・時刻を更新）
-      outsideHistory[mcid] = { x: p.x, z: p.z, time: new Date() };
-    }
+    return isInsideMapBounds(p.x, p.z);
   });
 
   insideIds.sort(function (a, b) { return a.localeCompare(b); });
@@ -1367,9 +1365,6 @@ function renderLivePlayerList(data) {
       livePlayerListEl.appendChild(buildPlayerListItem(mcid, data[mcid]));
     });
   }
-
-  // ---- マップ外に出た記録（ずっと蓄積） ----
-  renderOutsideHistory();
 }
 
 function startLive() {
@@ -1415,8 +1410,34 @@ function stopLive() {
   livePlayerListEl.innerHTML = '';
   liveStatusChip.textContent = '未接続';
   liveCountChip.textContent = 'プレイヤー: 0人';
-  // マップ外に出た記録はライブ表示OFFにしても消さず、そのまま表示し続ける
-  renderOutsideHistory();
+  // マップ外に出た記録の購読は止めない（常時表示し続ける）
+}
+
+// ===== マップ外に出た記録（Firebase常時購読） =====
+// ライブ表示のON/OFFとは無関係に、ページを開いている間ずっと
+// outside_history を購読し続ける。Minecraftサーバー側が
+// プレイヤーの記録を書き込むので、ブラウザを閉じない限り
+// リアルタイムで反映される。
+var outsideHistoryStarted = false;
+function startOutsideHistoryWatch() {
+  if (outsideHistoryStarted) return;
+  if (!initFirebase()) return;
+  outsideHistoryStarted = true;
+
+  outsideHistoryRef.on('value', function (snapshot) {
+    var raw = snapshot.val() || {};
+    var next = {};
+    Object.keys(raw).forEach(function (mcid) {
+      var r = raw[mcid];
+      if (!r || typeof r.x !== 'number' || typeof r.z !== 'number' || !r.time) return;
+      next[mcid] = { x: r.x, z: r.z, time: new Date(r.time) };
+    });
+    outsideHistory = next;
+    renderOutsideHistory();
+  }, function (error) {
+    console.error(error);
+    // 履歴の購読エラーはライブ表示のステータス欄を汚さない程度に留める
+  });
 }
 
 liveToggleBtn.addEventListener('click', function () {
@@ -1445,6 +1466,9 @@ window.addEventListener('load', function () {
   fitView();
   setTimeout(fitView, 50);
   setTimeout(fitView, 200);
+  // マップ外に出た記録は、ライブ表示のON/OFFに関わらず
+  // ページを開いた時点から常時監視を開始する
+  startOutsideHistoryWatch();
 });
 if (mapImg.complete) {
   fitView();
