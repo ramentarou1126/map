@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
+<meta<!DOCTYPE html>
+<html lang="ja">
+<head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>麺Earth MAP</title>
@@ -302,12 +305,13 @@ function doJumpTo(){
 }
 function zoomToMcCoord(mcX,mcZ,targetScale){
   var rect=mapArea.getBoundingClientRect();
-  var minScale=Math.min(rect.width/IMG_W,rect.height/IMG_H);
+  var ph=panelHeight();var availH=rect.height-ph;if(availH<=0)availH=rect.height;
+  var minScale=Math.min(rect.width/IMG_W,availH/IMG_H);
   var ns=Math.min(Math.max(targetScale,minScale),15);
   var rx=(mcX-MAP_BOUNDS.x1)/(MAP_BOUNDS.x2-MAP_BOUNDS.x1);
   var rz=(mcZ-MAP_BOUNDS.z1)/(MAP_BOUNDS.z2-MAP_BOUNDS.z1);
   view.x=rect.width/2-rx*IMG_W*ns;
-  view.y=rect.height/2-rz*IMG_H*ns;
+  view.y=availH/2-rz*IMG_H*ns;
   view.scale=ns;
   clampView();applyView();
   setDetailExpanded(false);
@@ -408,7 +412,7 @@ function onTouchMove(e){
   for(var i=0;i<e.changedTouches.length;i++)pointers[e.changedTouches[i].identifier]={x:e.changedTouches[i].clientX,y:e.changedTouches[i].clientY};
   var keys=Object.keys(pointers);
   if(keys.length===1&&panActive){var p=pointers[keys[0]];var dx=p.x-panLastX,dy=p.y-panLastY;if(Math.abs(dx)>3||Math.abs(dy)>3)isTap=false;view.x+=dx;view.y+=dy;panLastX=p.x;panLastY=p.y;clampView();applyView();}
-  else if(keys.length===2&&pinchActive){var p0=pointers[keys[0]],p1=pointers[keys[1]];var dist=Math.hypot(p1.x-p0.x,p1.y-p0.y);var midX=(p0.x+p1.x)/2,midY=(p0.y+p1.y)/2;var rect=mapArea.getBoundingClientRect();var prevOx=pinchMidX-rect.left,prevOy=pinchMidY-rect.top;var minScale=Math.min(rect.width/IMG_W,rect.height/IMG_H);var ns=Math.min(Math.max(view.scale*dist/pinchDist,minScale),15);view.x=prevOx-(prevOx-view.x)*(ns/view.scale);view.y=prevOy-(prevOy-view.y)*(ns/view.scale);view.scale=ns;view.x+=(midX-pinchMidX);view.y+=(midY-pinchMidY);pinchDist=dist;pinchMidX=midX;pinchMidY=midY;clampView();applyView();}
+  else if(keys.length===2&&pinchActive){var p0=pointers[keys[0]],p1=pointers[keys[1]];var dist=Math.hypot(p1.x-p0.x,p1.y-p0.y);var midX=(p0.x+p1.x)/2,midY=(p0.y+p1.y)/2;var rect=mapArea.getBoundingClientRect();var prevOx=pinchMidX-rect.left,prevOy=pinchMidY-rect.top;var ph2=panelHeight();var availH2=rect.height-ph2;if(availH2<=0)availH2=rect.height;var minScale=Math.min(rect.width/IMG_W,availH2/IMG_H);var ns=Math.min(Math.max(view.scale*dist/pinchDist,minScale),15);view.x=prevOx-(prevOx-view.x)*(ns/view.scale);view.y=prevOy-(prevOy-view.y)*(ns/view.scale);view.scale=ns;view.x+=(midX-pinchMidX);view.y+=(midY-pinchMidY);pinchDist=dist;pinchMidX=midX;pinchMidY=midY;clampView();applyView();}
 }
 function onTouchEnd(e){
   for(var i=0;i<e.changedTouches.length;i++)delete pointers[e.changedTouches[i].identifier];
@@ -428,10 +432,10 @@ mapArea.addEventListener('click',function(e){if(e.target.closest('#zoom-controls
 mapArea.addEventListener('mousedown',function(e){if(e.target.closest('#zoom-controls')||e.target.closest('#panel'))return;mouseDragging=true;mouseMoved=false;mouseLastX=e.clientX;mouseLastY=e.clientY;});
 window.addEventListener('mousemove',function(e){if(!mouseDragging)return;var dx=e.clientX-mouseLastX,dy=e.clientY-mouseLastY;if(Math.abs(dx)>3||Math.abs(dy)>3)mouseMoved=true;view.x+=dx;view.y+=dy;mouseLastX=e.clientX;mouseLastY=e.clientY;clampView();applyView();});
 window.addEventListener('mouseup',function(){mouseDragging=false;});
-mapArea.addEventListener('wheel',function(e){e.preventDefault();var rect=mapArea.getBoundingClientRect();var ox=e.clientX-rect.left,oy=e.clientY-rect.top;var minScale=Math.min(rect.width/IMG_W,rect.height/IMG_H);var factor=e.deltaY<0?1.15:1/1.15;var ns=Math.min(Math.max(view.scale*factor,minScale),15);view.x=ox-(ox-view.x)*(ns/view.scale);view.y=oy-(oy-view.y)*(ns/view.scale);view.scale=ns;clampView();applyView();},{passive:false});
+mapArea.addEventListener('wheel',function(e){e.preventDefault();var rect=mapArea.getBoundingClientRect();var ph=panelHeight();var availH=rect.height-ph;if(availH<=0)availH=rect.height;var ox=e.clientX-rect.left,oy=e.clientY-rect.top;var minScale=Math.min(rect.width/IMG_W,availH/IMG_H);var factor=e.deltaY<0?1.15:1/1.15;var ns=Math.min(Math.max(view.scale*factor,minScale),15);view.x=ox-(ox-view.x)*(ns/view.scale);view.y=oy-(oy-view.y)*(ns/view.scale);view.scale=ns;clampView();applyView();},{passive:false});
 
 // ===== ズームボタン =====
-function zoomBy(factor){var rect=mapArea.getBoundingClientRect();var minScale=Math.min(rect.width/IMG_W,rect.height/IMG_H);var ns=Math.min(Math.max(view.scale*factor,minScale),15);var ox=rect.width/2,oy=rect.height/2;view.x=ox-(ox-view.x)*(ns/view.scale);view.y=oy-(oy-view.y)*(ns/view.scale);view.scale=ns;clampView();applyView();}
+function zoomBy(factor){var rect=mapArea.getBoundingClientRect();var ph=panelHeight();var availH=rect.height-ph;if(availH<=0)availH=rect.height;var minScale=Math.min(rect.width/IMG_W,availH/IMG_H);var ns=Math.min(Math.max(view.scale*factor,minScale),15);var ox=rect.width/2,oy=availH/2;view.x=ox-(ox-view.x)*(ns/view.scale);view.y=oy-(oy-view.y)*(ns/view.scale);view.scale=ns;clampView();applyView();}
 function bindZoomBtn(el,factor){var fired=false;function trigger(e){e.preventDefault();e.stopPropagation();if(fired)return;fired=true;zoomBy(factor);setTimeout(function(){fired=false;},150);}el.addEventListener('touchstart',trigger,{passive:false});el.addEventListener('mousedown',trigger);el.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();});}
 bindZoomBtn(document.getElementById('zoom-in'),1.4);
 bindZoomBtn(document.getElementById('zoom-out'),1/1.4);
