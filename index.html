@@ -8,1477 +8,566 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+JP:wght@400;700;900&display=swap');
-
 :root {
-  --grass: #6fae3e;
-  --grass-dark: #4f7f2c;
-  --dirt: #8b6a4a;
-  --dirt-dark: #5c4a33;
-  --stone: #8a8a8a;
-  --stone-dark: #545454;
-  --obsidian: #0d0f0d;
-  --panel-bg: #1a1d16;
-  --panel-border: #3a3f2e;
-  --gold: #f0c419;
-  --gold-dark: #b8941a;
-  --diamond: #4fd1e8;
-  --redstone: #c0392b;
-  --redstone-dark: #7a1f16;
-  --emerald: #2ecc71;
-  --text-main: #e8e6d8;
-  --text-dim: #8a9478;
-  --font-pixel: 'Press Start 2P', monospace;
-  --font-body: 'Noto Sans JP', sans-serif;
+  --grass:#6fae3e;--grass-dark:#4f7f2c;--dirt:#8b6a4a;--dirt-dark:#5c4a33;
+  --stone:#8a8a8a;--stone-dark:#545454;--obsidian:#0d0f0d;
+  --panel-bg:#1a1d16;--panel-border:#3a3f2e;
+  --gold:#f0c419;--gold-dark:#b8941a;--diamond:#4fd1e8;
+  --redstone:#c0392b;--redstone-dark:#7a1f16;--emerald:#2ecc71;
+  --text-main:#e8e6d8;--text-dim:#8a9478;
+  --font-pixel:'Press Start 2P',monospace;--font-body:'Noto Sans JP',sans-serif;
 }
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--obsidian);color:var(--text-main);font-family:var(--font-body);}
+body{display:flex;flex-direction:column;}
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+/* ヘッダー */
+#header{flex:0 0 auto;background:linear-gradient(180deg,rgba(255,255,255,0.06),rgba(0,0,0,0.15)),var(--dirt-dark);border-bottom:4px solid var(--gold-dark);padding:10px 14px;display:flex;align-items:center;gap:10px;}
+#header .logo{font-family:var(--font-pixel);font-size:14px;color:var(--gold);text-shadow:2px 2px 0 #000;white-space:nowrap;}
+#header .logo::before{content:'\26cf\fe0e ';}
+#hdr-info{flex:1;background:rgba(0,0,0,0.45);border:2px solid var(--panel-border);border-radius:3px;padding:6px 10px;font-size:12px;color:var(--emerald);text-align:center;font-family:monospace;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 
-html, body {
-  width: 100%;
-  height: 100%;
-  background: var(--obsidian);
-  background-image:
-    linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)),
-    repeating-linear-gradient(0deg, #14170f 0px, #14170f 2px, #171a12 2px, #171a12 4px);
-  color: var(--text-main);
-  font-family: var(--font-body);
-  overflow: hidden;
-}
-body { display: flex; flex-direction: column; }
+#error-banner{display:none;font-family:var(--font-pixel);font-size:11px;color:#fff;padding:10px 14px;text-align:center;flex:0 0 auto;text-shadow:1px 1px 0 #000;}
 
-/* ===== Minecraftっぽいボタン共通(立体枠) ===== */
-.mc-btn {
-  font-family: var(--font-pixel);
-  font-size: 10px;
-  letter-spacing: 0.5px;
-  line-height: 1.6;
-  color: #fff;
-  background: var(--stone);
-  border-top: 3px solid #c9c9c9;
-  border-left: 3px solid #c9c9c9;
-  border-right: 3px solid #4a4a4a;
-  border-bottom: 3px solid #4a4a4a;
-  border-radius: 0;
-  padding: 8px 10px;
-  text-shadow: 1px 1px 0 #000;
-  cursor: pointer;
-  transition: transform .05s;
-  image-rendering: pixelated;
-}
-.mc-btn:active {
-  border-top: 3px solid #4a4a4a;
-  border-left: 3px solid #4a4a4a;
-  border-right: 3px solid #c9c9c9;
-  border-bottom: 3px solid #c9c9c9;
-  transform: translateY(1px);
-}
-.mc-btn.grass { background: var(--grass); border-top-color:#9ed46e; border-left-color:#9ed46e; border-right-color:var(--grass-dark); border-bottom-color:var(--grass-dark); }
-.mc-btn.redstone { background: var(--redstone); border-top-color:#e0685a; border-left-color:#e0685a; border-right-color:var(--redstone-dark); border-bottom-color:var(--redstone-dark); }
-.mc-btn.diamond { background: #2a7f92; border-top-color:var(--diamond); border-left-color:var(--diamond); border-right-color:#1a4f5c; border-bottom-color:#1a4f5c; }
-.mc-btn.dirt { background: var(--dirt); border-top-color:#a98a63; border-left-color:#a98a63; border-right-color:var(--dirt-dark); border-bottom-color:var(--dirt-dark); }
+/* ステージ：マップとパネルのコンテナ */
+#stage{flex:1 1 auto;position:relative;overflow:hidden;min-height:0;}
 
-/* ===== ヘッダー: クラフトテーブル風 ===== */
-#error-banner {
-  display: none;
-  font-family: var(--font-pixel);
-  font-size: 11px;
-  letter-spacing: 0.5px;
-  color: #fff;
-  padding: 12px 14px;
-  text-align: center;
-  flex: 0 0 auto;
-  text-shadow: 1px 1px 0 #000;
-  border-bottom: 3px solid rgba(0,0,0,0.4);
-}
+/* マップエリア：ステージ全体を常に占有 */
+#map-area{position:absolute;top:0;left:0;right:0;bottom:0;overflow:hidden;background:radial-gradient(ellipse at center,#12233a 0%,#060a12 100%);}
+#map-img{position:absolute;image-rendering:pixelated;display:block;-webkit-user-drag:none;user-select:none;-webkit-user-select:none;pointer-events:none;}
 
-#header {
-  flex: 0 0 auto;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.06), rgba(0,0,0,0.15)),
-    var(--dirt-dark);
-  border-bottom: 4px solid var(--gold-dark);
-  box-shadow: 0 3px 0 rgba(0,0,0,0.3);
-  padding: 10px 14px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-#header .logo {
-  font-family: var(--font-pixel);
-  font-size: 14px;
-  color: var(--gold);
-  text-shadow: 2px 2px 0 #000, 0 0 8px rgba(240,196,25,0.4);
-  white-space: nowrap;
-  letter-spacing: 1px;
-}
-#header .logo::before { content: '\26cf\fe0e '; }
-#hdr-info {
-  flex: 1;
-  background: rgba(0,0,0,0.45);
-  border: 2px solid var(--panel-border);
-  border-radius: 3px;
-  padding: 6px 10px;
-  font-size: 12px;
-  color: var(--emerald);
-  text-align: center;
-  font-family: 'Noto Sans JP', monospace;
-  letter-spacing: 0.5px;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+#tap-mark{position:absolute;width:22px;height:22px;transform:translate(-50%,-50%);pointer-events:none;display:none;z-index:10;}
+#tap-mark::before,#tap-mark::after{content:'';position:absolute;background:var(--emerald);}
+#tap-mark::before{left:50%;top:0;width:3px;height:100%;transform:translateX(-50%);}
+#tap-mark::after{top:50%;left:0;width:100%;height:3px;transform:translateY(-50%);}
 
-/* ===== マップエリア ===== */
-#map-area {
-  flex: 1 1 auto;
-  position: relative;
-  overflow: hidden;
-  background:
-    radial-gradient(ellipse at center, #12233a 0%, #060a12 100%);
-  min-height: 0;
-  border-bottom: 3px solid #000;
-}
-#map-img {
-  position: absolute;
-  image-rendering: pixelated;
-  display: block;
-  box-shadow: 0 0 40px rgba(0,0,0,0.6) inset;
-  -webkit-user-drag: none;
-  user-select: none;
-  -webkit-user-select: none;
-  pointer-events: none;
-}
-#tap-mark {
-  position: absolute;
-  width: 22px;
-  height: 22px;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  display: none;
-  z-index: 10;
-  filter: drop-shadow(0 0 3px #000);
-}
-#tap-mark::before, #tap-mark::after {
-  content: '';
-  position: absolute;
-  background: var(--emerald);
-}
-#tap-mark::before { left: 50%; top: 0; width: 3px; height: 100%; transform: translateX(-50%); }
-#tap-mark::after { top: 50%; left: 0; width: 100%; height: 3px; transform: translateY(-50%); }
+#jump-mark{position:absolute;width:26px;height:26px;transform:translate(-50%,-50%);pointer-events:none;display:none;z-index:15;}
+#jump-mark::before,#jump-mark::after{content:'';position:absolute;background:var(--redstone);border-radius:1px;box-shadow:0 0 6px rgba(192,57,43,0.8);}
+#jump-mark::before{left:50%;top:0;width:4px;height:26px;transform:translateX(-50%);}
+#jump-mark::after{top:50%;left:0;width:26px;height:4px;transform:translateY(-50%);}
 
-#jump-mark {
-  position: absolute;
-  width: 26px;
-  height: 26px;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  display: none;
-  z-index: 15;
-  filter: drop-shadow(0 0 4px #000);
-}
-#jump-mark::before, #jump-mark::after {
-  content: '';
-  position: absolute;
-  background: var(--redstone);
-  border-radius: 1px;
-  box-shadow: 0 0 6px rgba(192,57,43,0.8);
-}
-#jump-mark::before { left: 50%; top: 0; width: 4px; height: 26px; transform: translateX(-50%); }
-#jump-mark::after { top: 50%; left: 0; width: 26px; height: 4px; transform: translateY(-50%); }
+.player-mark{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;pointer-events:none;z-index:20;}
+.player-mark .label{font-family:var(--font-pixel);font-size:8px;color:#fff;background:rgba(0,0,0,0.75);padding:3px 6px;border-radius:2px;margin-bottom:4px;white-space:nowrap;border:1px solid var(--gold-dark);}
+.player-mark .icon{width:32px;height:32px;border:3px solid var(--gold);border-radius:3px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:16px;position:relative;overflow:hidden;box-shadow:0 0 10px rgba(240,196,25,0.5),0 3px 6px rgba(0,0,0,0.5);}
+.player-mark .icon img{width:100%;height:100%;object-fit:cover;image-rendering:pixelated;pointer-events:none;}
 
-.player-mark {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  pointer-events: none;
-  z-index: 20;
-}
-.player-mark .label {
-  font-family: var(--font-pixel);
-  font-size: 8px;
-  color: #fff;
-  background: rgba(0,0,0,0.75);
-  padding: 3px 6px;
-  border-radius: 2px;
-  margin-bottom: 4px;
-  white-space: nowrap;
-  text-shadow: 1px 1px 0 #000;
-  border: 1px solid var(--gold-dark);
-}
-.player-mark .icon {
-  width: 32px;
-  height: 32px;
-  border: 3px solid var(--gold);
-  border-radius: 3px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-weight: 900;
-  font-size: 16px;
-  text-shadow: 1px 1px 0 #000;
-  box-shadow: 0 0 10px rgba(240,196,25,0.5), 0 3px 6px rgba(0,0,0,0.5);
-  position: relative;
-  overflow: hidden;
-}
-.player-mark .icon img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  image-rendering: pixelated;
-  -webkit-user-drag: none;
-  user-select: none;
-  -webkit-user-select: none;
-  pointer-events: none;
-}
+#tooltip{position:absolute;background:rgba(10,14,10,0.95);border:2px solid var(--emerald);color:var(--emerald);font-family:var(--font-pixel);font-size:9px;padding:6px 10px;border-radius:3px;pointer-events:none;display:none;z-index:30;white-space:nowrap;}
 
-#tooltip {
-  position: absolute;
-  background: rgba(10,14,10,0.95);
-  border: 2px solid var(--emerald);
-  color: var(--emerald);
-  font-family: var(--font-pixel);
-  font-size: 9px;
-  padding: 6px 10px;
-  border-radius: 3px;
-  pointer-events: none;
-  display: none;
-  z-index: 30;
-  white-space: nowrap;
-  text-shadow: 1px 1px 0 #000;
-}
+/* ズームボタン：パネルに隠れない高さに配置 */
+#zoom-controls{position:absolute;right:12px;bottom:185px;z-index:25;display:flex;flex-direction:column;gap:6px;}
+.zoom-btn{width:44px;height:44px;font-family:var(--font-pixel);font-size:20px;color:#fff;background:var(--stone);border-top:3px solid #c9c9c9;border-left:3px solid #c9c9c9;border-right:3px solid #4a4a4a;border-bottom:3px solid #4a4a4a;cursor:pointer;display:flex;align-items:center;justify-content:center;user-select:none;-webkit-user-select:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+.zoom-btn:active{border-top:3px solid #4a4a4a;border-left:3px solid #4a4a4a;border-right:3px solid #c9c9c9;border-bottom:3px solid #c9c9c9;}
 
-/* ===== パネル ===== */
-#panel {
-  flex: 0 0 auto;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.1)),
-    var(--panel-bg);
-  border-top: 4px solid var(--panel-border);
-  padding: 10px 12px 12px;
-}
-.tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-.tab-btn {
-  flex: 1;
-  font-family: var(--font-pixel);
-  font-size: 12px;
-  letter-spacing: 0.5px;
-  padding: 14px 10px;
-  color: #cfd6c4;
-  text-shadow: 1px 1px 0 #000;
-  background: var(--stone-dark);
-  border-top: 3px solid #6e6e6e;
-  border-left: 3px solid #6e6e6e;
-  border-right: 3px solid #2c2c2c;
-  border-bottom: 5px solid #2c2c2c;
-  border-radius: 2px;
-  transition: transform .05s, filter .1s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-.tab-btn:active { transform: translateY(2px); border-bottom-width: 3px; }
-.tab-btn .tab-icon { font-size: 16px; }
-.tab-btn.active {
-  color: #fff;
-  background: var(--grass);
-  border-top-color: #9ed46e;
-  border-left-color: #9ed46e;
-  border-right-color: var(--grass-dark);
-  border-bottom-color: var(--grass-dark);
-  box-shadow: 0 0 14px rgba(111,174,62,0.55);
-  transform: translateY(-1px);
-}
-.tab-content { display: none; flex-direction: column; gap: 8px; }
-.tab-content.active { display: flex; }
+/* パネル：マップの上にオーバーレイ */
+#panel{position:absolute;left:0;right:0;bottom:0;z-index:40;background:linear-gradient(180deg,rgba(255,255,255,0.03),rgba(0,0,0,0.1)),var(--panel-bg);border-top:4px solid var(--panel-border);border-radius:14px 14px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,0.5);display:flex;flex-direction:column;max-height:88%;}
 
-.field-row {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  align-items: flex-end;
-}
-.field-group { display: flex; flex-direction: column; gap: 4px; }
-.field-label {
-  font-family: var(--font-pixel);
-  font-size: 8px;
-  color: var(--gold);
-  text-shadow: 1px 1px 0 #000;
-  letter-spacing: 0.5px;
-}
-input[type="text"], input[type="number"] {
-  background: #0a0d08;
-  border: 2px solid var(--panel-border);
-  color: var(--text-main);
-  font-family: var(--font-body);
-  font-size: 15px;
-  padding: 8px 10px;
-  border-radius: 2px;
-  width: 100px;
-}
-input[type="text"]:focus, input[type="number"]:focus {
-  outline: none;
-  border-color: var(--emerald);
-  box-shadow: 0 0 0 2px rgba(46,204,113,0.25);
-}
+/* ハンドル（つまみ） */
+#panel-handle{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:5px;padding:9px 12px 4px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;}
+.handle-bar{width:46px;height:5px;border-radius:3px;background:var(--panel-border);}
+.handle-label{font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);min-height:9px;}
 
-.action-btn {
-  font-family: var(--font-pixel);
-  font-size: 10px;
-  letter-spacing: 0.5px;
-  color: #fff;
-  padding: 10px 14px;
-  border-radius: 0;
-  text-shadow: 1px 1px 0 #000;
-  cursor: pointer;
-  transition: transform .05s;
-}
-.action-btn:active { transform: translateY(1px); }
-.action-btn {
-  background: var(--grass);
-  border-top: 3px solid #9ed46e;
-  border-left: 3px solid #9ed46e;
-  border-right: 3px solid var(--grass-dark);
-  border-bottom: 3px solid var(--grass-dark);
-}
-.action-btn.secondary {
-  background: var(--stone);
-  border-top: 3px solid #c9c9c9;
-  border-left: 3px solid #c9c9c9;
-  border-right: 3px solid var(--stone-dark);
-  border-bottom: 3px solid var(--stone-dark);
-}
-.action-btn.danger {
-  background: var(--redstone);
-  border-top: 3px solid #e0685a;
-  border-left: 3px solid #e0685a;
-  border-right: 3px solid var(--redstone-dark);
-  border-bottom: 3px solid var(--redstone-dark);
-}
-.action-btn.jump {
-  background: #2a7f92;
-  border-top: 3px solid var(--diamond);
-  border-left: 3px solid var(--diamond);
-  border-right: 3px solid #1a4f5c;
-  border-bottom: 3px solid #1a4f5c;
-}
+/* タブ */
+.tabs{display:flex;gap:8px;padding:0 12px;margin:4px 0 8px;flex:0 0 auto;}
+.tab-btn{flex:1;font-family:var(--font-pixel);font-size:11px;padding:12px 8px;color:#cfd6c4;background:var(--stone-dark);border-top:3px solid #6e6e6e;border-left:3px solid #6e6e6e;border-right:3px solid #2c2c2c;border-bottom:5px solid #2c2c2c;border-radius:2px;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;}
+.tab-btn:active{transform:translateY(2px);border-bottom-width:3px;}
+.tab-btn .tab-icon{font-size:15px;}
+.tab-btn.active{color:#fff;background:var(--grass);border-top-color:#9ed46e;border-left-color:#9ed46e;border-right-color:var(--grass-dark);border-bottom-color:var(--grass-dark);box-shadow:0 0 14px rgba(111,174,62,0.55);transform:translateY(-1px);}
 
-.info-chip {
-  font-family: var(--font-body);
-  font-size: 12px;
-  background: rgba(0,0,0,0.4);
-  border: 2px solid var(--panel-border);
-  color: var(--text-dim);
-  padding: 6px 10px;
-  border-radius: 3px;
-}
-.info-chip b { color: var(--gold); }
+/* タブコンテンツ（常時表示部分） */
+.tab-content{display:none;flex-direction:column;gap:8px;padding:0 12px 8px;flex:0 0 auto;}
+.tab-content.active{display:flex;}
 
-/* ===== ライブプレイヤーリスト ===== */
-#live-player-list {
-  margin-top: 10px;
-  max-height: 240px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.live-list-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: rgba(0,0,0,0.35);
-  border: 2px solid var(--panel-border);
-  border-radius: 4px;
-  padding: 6px 10px;
-  cursor: pointer;
-  transition: background .15s, border-color .15s;
-}
-.live-list-item:hover,
-.live-list-item:active {
-  background: rgba(46,204,113,0.15);
-  border-color: var(--emerald);
-}
-.live-list-item .avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 3px;
-  border: 2px solid var(--emerald);
-  flex-shrink: 0;
-  background: #222;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-weight: 900;
-  font-size: 13px;
-  font-family: var(--font-body);
-  text-shadow: 1px 1px 0 #000;
-  overflow: hidden;
-}
-.live-list-item .avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  image-rendering: pixelated;
-  -webkit-user-drag: none;
-  user-select: none;
-  -webkit-user-select: none;
-  pointer-events: none;
-}
-.live-list-item .info {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-}
-.live-list-item .mcid {
-  font-family: var(--font-body);
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-main);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.live-list-item .coords {
-  font-family: var(--font-body);
-  font-size: 11px;
-  color: var(--text-dim);
-}
-.live-list-empty {
-  font-family: var(--font-body);
-  font-size: 12px;
-  color: var(--text-dim);
-  text-align: center;
-  padding: 14px 0;
-}
+.field-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;}
+.field-group{display:flex;flex-direction:column;gap:4px;}
+.field-label{font-family:var(--font-pixel);font-size:8px;color:var(--gold);}
+input[type="number"]{background:#0a0d08;border:2px solid var(--panel-border);color:var(--text-main);font-family:var(--font-body);font-size:15px;padding:8px 10px;border-radius:2px;width:100px;}
+input[type="number"]:focus{outline:none;border-color:var(--emerald);}
 
-/* ===== マップ外プレイヤーセクション ===== */
-.section-divider {
-  height: 2px;
-  background: var(--panel-border);
-  margin: 4px 0 10px;
-  border-radius: 1px;
-}
-.section-title-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.section-title-icon {
-  font-size: 14px;
-}
-.section-title-text {
-  font-family: var(--font-pixel);
-  font-size: 10px;
-  letter-spacing: 0.5px;
-  color: var(--gold);
-  text-shadow: 1px 1px 0 #000;
-  flex: 1;
-}
-#outside-player-list {
-  max-height: 200px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.outside-list-item {
-  border-color: var(--gold-dark) !important;
-}
-.outside-list-item:hover,
-.outside-list-item:active {
-  background: rgba(240,196,25,0.15) !important;
-  border-color: var(--gold) !important;
-}
-.outside-list-item .avatar {
-  border-color: var(--gold-dark) !important;
-}
-.outside-list-item .coords {
-  color: var(--gold);
-}
+.action-btn{font-family:var(--font-pixel);font-size:10px;color:#fff;padding:10px 14px;text-shadow:1px 1px 0 #000;cursor:pointer;}
+.action-btn{background:var(--grass);border-top:3px solid #9ed46e;border-left:3px solid #9ed46e;border-right:3px solid var(--grass-dark);border-bottom:3px solid var(--grass-dark);}
+.action-btn.danger{background:var(--redstone);border-top:3px solid #e0685a;border-left:3px solid #e0685a;border-right:3px solid var(--redstone-dark);border-bottom:3px solid var(--redstone-dark);}
+.action-btn.jump{background:#2a7f92;border-top:3px solid var(--diamond);border-left:3px solid var(--diamond);border-right:3px solid #1a4f5c;border-bottom:3px solid #1a4f5c;}
+.action-btn:active{transform:translateY(1px);}
 
-/* ===== ズームコントロール ===== */
-#zoom-controls {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
-  z-index: 25;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.zoom-btn {
-  width: 44px;
-  height: 44px;
-  font-family: var(--font-pixel);
-  font-size: 20px;
-  line-height: 1;
-  color: #fff;
-  background: var(--stone);
-  border-top: 3px solid #c9c9c9;
-  border-left: 3px solid #c9c9c9;
-  border-right: 3px solid #4a4a4a;
-  border-bottom: 3px solid #4a4a4a;
-  text-shadow: 1px 1px 0 #000;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform .05s;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-}
-.zoom-btn:active {
-  border-top: 3px solid #4a4a4a;
-  border-left: 3px solid #4a4a4a;
-  border-right: 3px solid #c9c9c9;
-  border-bottom: 3px solid #c9c9c9;
-  transform: translateY(1px);
-}
+.info-chip{font-family:var(--font-body);font-size:12px;background:rgba(0,0,0,0.4);border:2px solid var(--panel-border);color:var(--text-dim);padding:6px 10px;border-radius:3px;}
 
-/* ===== ライブプレイヤー（Firebase） ===== */
-.live-mark .icon {
-  box-shadow: 0 0 10px rgba(46,204,113,0.7), 0 3px 6px rgba(0,0,0,0.5);
-  border-color: var(--emerald);
-}
-.live-mark .icon::after {
-  content: '';
-  position: absolute;
-  top: -3px; right: -3px;
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  background: var(--emerald);
-  box-shadow: 0 0 4px var(--emerald);
-  animation: liveBlink 1.2s ease-in-out infinite;
-}
-@keyframes liveBlink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: .3; }
-}
+/* 詳細エリア（スワイプで開く） */
+#panel-detail{flex:0 0 auto;overflow:hidden;max-height:0;transition:max-height .32s cubic-bezier(.2,.8,.2,1);}
+#panel-detail.expanded{overflow-y:auto;-webkit-overflow-scrolling:touch;}
 
+/* プレイヤーリスト */
+#live-player-list{display:flex;flex-direction:column;gap:6px;padding:4px 12px 0;}
+.live-list-item{display:flex;align-items:center;gap:10px;background:rgba(0,0,0,0.35);border:2px solid var(--panel-border);border-radius:4px;padding:6px 10px;cursor:pointer;}
+.live-list-item:active{background:rgba(46,204,113,0.15);border-color:var(--emerald);}
+.live-list-item .avatar{width:28px;height:28px;border-radius:3px;border:2px solid var(--emerald);flex-shrink:0;background:#222;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:13px;overflow:hidden;}
+.live-list-item .avatar img{width:100%;height:100%;object-fit:cover;image-rendering:pixelated;pointer-events:none;}
+.live-list-item .info{display:flex;flex-direction:column;gap:1px;min-width:0;}
+.live-list-item .mcid{font-size:13px;font-weight:700;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.live-list-item .coords{font-size:11px;color:var(--text-dim);}
+.live-list-empty{font-size:12px;color:var(--text-dim);text-align:center;padding:14px 0;}
 
+/* マップ外記録セクション */
+#outside-section{padding:0 12px 16px;}
+.section-divider{height:2px;background:var(--panel-border);margin:12px 0 10px;border-radius:1px;}
+.section-title-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.section-title-text{font-family:var(--font-pixel);font-size:10px;color:var(--gold);flex:1;}
+#outside-player-list{display:flex;flex-direction:column;gap:6px;}
+.outside-list-item{border-color:var(--gold-dark) !important;}
+.outside-list-item:active{background:rgba(240,196,25,0.15) !important;border-color:var(--gold) !important;}
+.outside-list-item .avatar{border-color:var(--gold-dark) !important;}
+.outside-list-item .coords{color:var(--gold) !important;}
+
+/* ライブマーカー */
+.live-mark .icon{border-color:var(--emerald);box-shadow:0 0 10px rgba(46,204,113,0.7);}
+.live-mark .icon::after{content:'';position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;background:var(--emerald);animation:liveBlink 1.2s ease-in-out infinite;}
+@keyframes liveBlink{0%,100%{opacity:1;}50%{opacity:.3;}}
 </style>
 </head>
 <body>
-
 <div id="header">
   <div class="logo">麺Earth</div>
   <div id="hdr-info">マップをタップしてください</div>
 </div>
 <div id="error-banner"></div>
 
-<div id="map-area">
-  <img id="map-img" src="map-image.jpg" alt="map">
-  <div id="tap-mark"></div>
-  <div id="jump-mark"></div>
-  <div id="tooltip"></div>
-  <div id="zoom-controls">
-    <button type="button" class="zoom-btn" id="zoom-in">+</button>
-    <button type="button" class="zoom-btn" id="zoom-out">&minus;</button>
-  </div>
-</div>
-
-<div id="panel">
-  <div class="tabs">
-    <button type="button" class="tab-btn active" data-tab="live" id="tab-btn-players"><span class="tab-icon">&#128100;</span>プレイヤー</button>
-    <button type="button" class="tab-btn" data-tab="jump"><span class="tab-icon">&#127919;</span>ジャンプ</button>
-  </div>
-
-  <div class="tab-content" id="tab-jump">
-    <div class="field-row">
-      <div class="field-group">
-        <div class="field-label">MC X</div>
-        <input type="number" id="input-jx" placeholder="7152">
-      </div>
-      <div class="field-group">
-        <div class="field-label">MC Z</div>
-        <input type="number" id="input-jz" placeholder="-1820">
-      </div>
-      <button type="button" class="action-btn jump" id="btn-jump">ジャンプ</button>
+<div id="stage">
+  <!-- マップ：常に全面表示 -->
+  <div id="map-area">
+    <img id="map-img" src="map-image.jpg" alt="map">
+    <div id="tap-mark"></div>
+    <div id="jump-mark"></div>
+    <div id="tooltip"></div>
+    <div id="zoom-controls">
+      <button type="button" class="zoom-btn" id="zoom-in">+</button>
+      <button type="button" class="zoom-btn" id="zoom-out">&minus;</button>
     </div>
   </div>
 
-  <div class="tab-content active" id="tab-live">
-    <div class="field-row">
-      <button type="button" class="action-btn grass" id="btn-live-toggle">ライブ表示: OFF</button>
-      <div class="info-chip" id="live-status">未接続</div>
+  <!-- パネル：マップの上にオーバーレイ -->
+  <div id="panel">
+    <!-- ハンドル：ここを上下にスワイプでリスト開閉 -->
+    <div id="panel-handle">
+      <div class="handle-bar"></div>
+      <div class="handle-label" id="handle-label">上にスワイプで一覧表示</div>
     </div>
-    <div class="field-row">
-      <div class="info-chip" id="live-count">プレイヤー: 0人</div>
-    </div>
-    <div id="live-player-list"></div>
 
-    <div id="outside-section" style="display:none; margin-top:14px;">
-      <div class="section-divider"></div>
-      <div class="section-title-row">
-        <span class="section-title-icon">&#127757;</span>
-        <span class="section-title-text">マップ外に出た記録</span>
-        <span class="info-chip" id="outside-count">0人</span>
+    <!-- タブ -->
+    <div class="tabs">
+      <button type="button" class="tab-btn active" data-tab="live" id="tab-btn-players"><span class="tab-icon">&#128100;</span>プレイヤー</button>
+      <button type="button" class="tab-btn" data-tab="jump" id="tab-btn-jump"><span class="tab-icon">&#127919;</span>ジャンプ</button>
+    </div>
+
+    <!-- プレイヤータブ（常時表示部分） -->
+    <div class="tab-content active" id="tab-live">
+      <div class="field-row">
+        <button type="button" class="action-btn" id="btn-live-toggle">ライブ表示: OFF</button>
+        <div class="info-chip" id="live-status">未接続</div>
       </div>
-      <div id="outside-player-list"></div>
+      <div class="field-row">
+        <div class="info-chip" id="live-count">プレイヤー: 0人</div>
+      </div>
+    </div>
+
+    <!-- ジャンプタブ（常時表示部分） -->
+    <div class="tab-content" id="tab-jump">
+      <div class="field-row">
+        <div class="field-group">
+          <div class="field-label">MC X</div>
+          <input type="number" id="input-jx" placeholder="7152">
+        </div>
+        <div class="field-group">
+          <div class="field-label">MC Z</div>
+          <input type="number" id="input-jz" placeholder="-1820">
+        </div>
+        <button type="button" class="action-btn jump" id="btn-jump">ジャンプ</button>
+      </div>
+    </div>
+
+    <!-- 詳細エリア：スワイプで開く（プレイヤー一覧＋マップ外記録） -->
+    <div id="panel-detail">
+      <div id="live-player-list"></div>
+      <div id="outside-section" style="display:none;">
+        <div class="section-divider"></div>
+        <div class="section-title-row">
+          <span style="font-size:14px;">&#127757;</span>
+          <span class="section-title-text">マップ外に出た記録</span>
+          <span class="info-chip" id="outside-count">0人</span>
+        </div>
+        <div id="outside-player-list"></div>
+      </div>
     </div>
   </div>
 </div>
 
 <script>
 'use strict';
+var MAP_BOUNDS={x1:-9215,z1:-4607,x2:9215,z2:4607};
+var IMG_W=1539,IMG_H=769;
+var CONV={cx:51.26,ox:-4,cz:51.22,oz:1};
 
-// ===== 定数 =====
-var MAP_BOUNDS = { x1: -9215, z1: -4607, x2: 9215, z2: 4607 };
-var IMG_W = 1539, IMG_H = 769;
-var CONV = { cx: 51.26, ox: -4, cz: 51.22, oz: 1 };
+function mcToGeo(x,z){return{lat:(-(z-CONV.oz)/CONV.cz).toFixed(4),lng:((x-CONV.ox)/CONV.cx).toFixed(4)};}
 
-// ===== 座標変換 =====
-function mcToGeo(x, z) {
-  return {
-    lat: (-(z - CONV.oz) / CONV.cz).toFixed(4),
-    lng: ((x - CONV.ox) / CONV.cx).toFixed(4)
-  };
-}
+var view={x:0,y:0,scale:1};
+var mapArea=document.getElementById('map-area');
+var mapImg=document.getElementById('map-img');
+var tapMark=document.getElementById('tap-mark');
+var jumpMark=document.getElementById('jump-mark');
+var tooltip=document.getElementById('tooltip');
+var hdrInfo=document.getElementById('hdr-info');
+var errorBanner=document.getElementById('error-banner');
+var errorTimer=null;
 
-// ===== ビュー状態 =====
-var view = { x: 0, y: 0, scale: 1 };
+function showError(msg){errorBanner.textContent=msg;errorBanner.style.background='#c0392b';errorBanner.style.display='block';if(errorTimer)clearTimeout(errorTimer);errorTimer=setTimeout(function(){errorBanner.style.display='none';},5000);}
 
-// ===== DOM要素 =====
-var mapArea = document.getElementById('map-area');
-var mapImg = document.getElementById('map-img');
-var tapMark = document.getElementById('tap-mark');
-var jumpMark = document.getElementById('jump-mark');
-var tooltip = document.getElementById('tooltip');
-var hdrInfo = document.getElementById('hdr-info');
-
-// ===== ビュー計算 =====
-function fitView() {
-  var rect = mapArea.getBoundingClientRect();
-  if (rect.width <= 0 || rect.height <= 0) return;
-  var sx = rect.width / IMG_W;
-  var sy = rect.height / IMG_H;
-  view.scale = Math.min(sx, sy);
-  view.x = (rect.width - IMG_W * view.scale) / 2;
-  view.y = (rect.height - IMG_H * view.scale) / 2;
+// ===== ビュー =====
+function fitView(){
+  var rect=mapArea.getBoundingClientRect();
+  if(rect.width<=0||rect.height<=0)return;
+  view.scale=Math.min(rect.width/IMG_W,rect.height/IMG_H);
+  view.x=(rect.width-IMG_W*view.scale)/2;
+  view.y=(rect.height-IMG_H*view.scale)/2;
   applyView();
 }
+function applyView(){
+  mapImg.style.width=(IMG_W*view.scale)+'px';
+  mapImg.style.height=(IMG_H*view.scale)+'px';
+  mapImg.style.left=view.x+'px';
+  mapImg.style.top=view.y+'px';
+  updateAllMarkers();
+}
+function clampView(){
+  var rect=mapArea.getBoundingClientRect();
+  var cw=IMG_W*view.scale,ch=IMG_H*view.scale;
+  if(cw<=rect.width){view.x=(rect.width-cw)/2;}else{if(view.x>0)view.x=0;if(view.x<rect.width-cw)view.x=rect.width-cw;}
+  if(ch<=rect.height){view.y=(rect.height-ch)/2;}else{if(view.y>0)view.y=0;if(view.y<rect.height-ch)view.y=rect.height-ch;}
+}
+function mcToPixel(mx,mz){
+  var rx=(mx-MAP_BOUNDS.x1)/(MAP_BOUNDS.x2-MAP_BOUNDS.x1);
+  var rz=(mz-MAP_BOUNDS.z1)/(MAP_BOUNDS.z2-MAP_BOUNDS.z1);
+  return{x:view.x+rx*IMG_W*view.scale,y:view.y+rz*IMG_H*view.scale};
+}
+function pixelToMc(px,py){
+  return{x:Math.round(MAP_BOUNDS.x1+(px-view.x)/(IMG_W*view.scale)*(MAP_BOUNDS.x2-MAP_BOUNDS.x1)),z:Math.round(MAP_BOUNDS.z1+(py-view.y)/(IMG_H*view.scale)*(MAP_BOUNDS.z2-MAP_BOUNDS.z1))};
+}
+function isInsideMapBounds(x,z){return x>=MAP_BOUNDS.x1&&x<=MAP_BOUNDS.x2&&z>=MAP_BOUNDS.z1&&z<=MAP_BOUNDS.z2;}
 
-function applyView() {
-  mapImg.style.width = (IMG_W * view.scale) + 'px';
-  mapImg.style.height = (IMG_H * view.scale) + 'px';
-  mapImg.style.left = view.x + 'px';
-  mapImg.style.top = view.y + 'px';
-  updateMarkerPositions();
+// ===== マーカー位置更新 =====
+var currentJumpMc=null;
+function updateAllMarkers(){
+  if(currentJumpMc&&jumpMark.style.display!=='none'){var jp=mcToPixel(currentJumpMc.x,currentJumpMc.z);jumpMark.style.left=jp.x+'px';jumpMark.style.top=jp.y+'px';}
+  updateLiveMarkerPositions();
 }
 
-function clampView() {
-  var rect = mapArea.getBoundingClientRect();
-  var cw = IMG_W * view.scale;
-  var ch = IMG_H * view.scale;
-  if (cw <= rect.width) {
-    view.x = (rect.width - cw) / 2;
-  } else {
-    if (view.x > 0) view.x = 0;
-    if (view.x < rect.width - cw) view.x = rect.width - cw;
-  }
-  if (ch <= rect.height) {
-    view.y = (rect.height - ch) / 2;
-  } else {
-    if (view.y > 0) view.y = 0;
-    if (view.y < rect.height - ch) view.y = rect.height - ch;
-  }
-}
-
-// MC座標 -> map-area内ピクセル座標
-function mcToPixel(mcX, mcZ) {
-  var rx = (mcX - MAP_BOUNDS.x1) / (MAP_BOUNDS.x2 - MAP_BOUNDS.x1);
-  var rz = (mcZ - MAP_BOUNDS.z1) / (MAP_BOUNDS.z2 - MAP_BOUNDS.z1);
-  return {
-    x: view.x + rx * IMG_W * view.scale,
-    y: view.y + rz * IMG_H * view.scale
-  };
-}
-
-// map-area内ピクセル座標 -> MC座標
-function pixelToMc(px, py) {
-  var rx = (px - view.x) / (IMG_W * view.scale);
-  var rz = (py - view.y) / (IMG_H * view.scale);
-  return {
-    x: Math.round(MAP_BOUNDS.x1 + rx * (MAP_BOUNDS.x2 - MAP_BOUNDS.x1)),
-    z: Math.round(MAP_BOUNDS.z1 + rz * (MAP_BOUNDS.z2 - MAP_BOUNDS.z1))
-  };
-}
-
-// ===== エラー表示 =====
-var errorBanner = document.getElementById('error-banner');
-var errorTimer = null;
-function showError(msg) {
-  errorBanner.textContent = msg;
-  errorBanner.style.background = '#c0392b';
-  errorBanner.style.display = 'block';
-  if (errorTimer) clearTimeout(errorTimer);
-  errorTimer = setTimeout(function () { errorBanner.style.display = 'none'; }, 5000);
-}
-function showSuccess(msg) {
-  errorBanner.textContent = msg;
-  errorBanner.style.background = '#4f7f2c';
-  errorBanner.style.display = 'block';
-  if (errorTimer) clearTimeout(errorTimer);
-  errorTimer = setTimeout(function () { errorBanner.style.display = 'none'; }, 3000);
-}
-
-// ===== プレイヤーマーカー =====
-var playerMarkerEl = null;
-var currentPlayerMc = null;
-
-function isValidMcid(id) {
-  return /^[A-Za-z0-9_]{3,16}$/.test(id);
+// ===== タップ =====
+var tooltipTimer=null;
+function onMapTap(cx,cy){
+  var rect=mapArea.getBoundingClientRect();
+  var lx=cx-rect.left,ly=cy-rect.top;
+  if(lx<view.x||lx>view.x+IMG_W*view.scale||ly<view.y||ly>view.y+IMG_H*view.scale)return;
+  tapMark.style.display='block';tapMark.style.left=lx+'px';tapMark.style.top=ly+'px';
+  var mc=pixelToMc(lx,ly);
+  var geo=mcToGeo(mc.x,mc.z);
+  hdrInfo.textContent='X:'+mc.x+' Z:'+mc.z+' | '+geo.lat+'\u00b0N '+geo.lng+'\u00b0E';
+  tooltip.textContent='X:'+mc.x+' Z:'+mc.z;
+  tooltip.style.display='block';
+  var tx=lx+12,ty=ly-30;
+  if(tx+150>rect.width)tx=lx-160;if(ty<0)ty=ly+14;
+  tooltip.style.left=tx+'px';tooltip.style.top=ty+'px';
+  if(tooltipTimer)clearTimeout(tooltipTimer);
+  tooltipTimer=setTimeout(function(){tooltip.style.display='none';},2500);
 }
 
 // ===== ジャンプ =====
-var currentJumpMc = null;
+function doJumpTo(){
+  var x=parseFloat(document.getElementById('input-jx').value);
+  var z=parseFloat(document.getElementById('input-jz').value);
+  if(isNaN(x)||isNaN(z)){showError('X座標とZ座標を数字で入力してください。');return;}
+  currentJumpMc={x:x,z:z};
+  zoomToMcCoord(x,z,4);
+  var geo=mcToGeo(x,z);
+  hdrInfo.textContent='X:'+x+' Z:'+z+' | '+geo.lat+'\u00b0N '+geo.lng+'\u00b0E';
+  jumpMark.style.display='block';
+  var jp=mcToPixel(x,z);jumpMark.style.left=jp.x+'px';jumpMark.style.top=jp.y+'px';
+}
+function zoomToMcCoord(mcX,mcZ,targetScale){
+  var rect=mapArea.getBoundingClientRect();
+  var minScale=Math.min(rect.width/IMG_W,rect.height/IMG_H);
+  var ns=Math.min(Math.max(targetScale,minScale),15);
+  var rx=(mcX-MAP_BOUNDS.x1)/(MAP_BOUNDS.x2-MAP_BOUNDS.x1);
+  var rz=(mcZ-MAP_BOUNDS.z1)/(MAP_BOUNDS.z2-MAP_BOUNDS.z1);
+  view.x=rect.width/2-rx*IMG_W*ns;
+  view.y=rect.height/2-rz*IMG_H*ns;
+  view.scale=ns;
+  clampView();applyView();
+  setDetailExpanded(false);
+}
 
-function doJumpTo() {
-  var xStr = document.getElementById('input-jx').value;
-  var zStr = document.getElementById('input-jz').value;
-  var x = parseFloat(xStr);
-  var z = parseFloat(zStr);
-  if (isNaN(x) || isNaN(z)) {
-    showError('X座標とZ座標を数字で入力してください。');
-    return;
+// ===== パネルスライドシート =====
+var panelDetail=document.getElementById('panel-detail');
+var handleLabel=document.getElementById('handle-label');
+var panelHandle=document.getElementById('panel-handle');
+var detailExpanded=false;
+
+function detailMaxPx(){
+  return Math.max(100,Math.round(document.getElementById('stage').getBoundingClientRect().height*0.58));
+}
+function setDetailExpanded(expand){
+  detailExpanded=expand;
+  if(expand){
+    panelDetail.style.maxHeight=detailMaxPx()+'px';
+    panelDetail.classList.add('expanded');
+    handleLabel.textContent='下にスワイプで閉じる';
+  }else{
+    panelDetail.style.maxHeight='0px';
+    panelDetail.classList.remove('expanded');
+    handleLabel.textContent='上にスワイプで一覧表示';
   }
-  currentJumpMc = { x: x, z: z };
-
-  var rect = mapArea.getBoundingClientRect();
-  if (view.scale < 4) view.scale = 4;
-  var rx = (x - MAP_BOUNDS.x1) / (MAP_BOUNDS.x2 - MAP_BOUNDS.x1);
-  var rz = (z - MAP_BOUNDS.z1) / (MAP_BOUNDS.z2 - MAP_BOUNDS.z1);
-  view.x = rect.width / 2 - rx * IMG_W * view.scale;
-  view.y = rect.height / 2 - rz * IMG_H * view.scale;
-  applyView();
-
-  var geo = mcToGeo(x, z);
-  hdrInfo.textContent = 'X:' + x + ' Z:' + z + ' | ' + geo.lat + '\u00b0N ' + geo.lng + '\u00b0E';
 }
 
-function updateMarkerPositions() {
-  if (playerMarkerEl && currentPlayerMc) {
-    var p = mcToPixel(currentPlayerMc.x, currentPlayerMc.z);
-    playerMarkerEl.style.left = p.x + 'px';
-    playerMarkerEl.style.top = p.y + 'px';
-  }
-  if (currentJumpMc && jumpMark.style.display !== 'none') {
-    var jp = mcToPixel(currentJumpMc.x, currentJumpMc.z);
-    jumpMark.style.left = jp.x + 'px';
-    jumpMark.style.top = jp.y + 'px';
-  }
+var hDragging=false,hMoved=false,hStartY=0,hStartH=0,hMaxPx=0;
+function hDragStart(y){
+  if(!document.getElementById('tab-live').classList.contains('active'))return;
+  hDragging=true;hMoved=false;hStartY=y;
+  hStartH=panelDetail.getBoundingClientRect().height;
+  hMaxPx=detailMaxPx();
+  panelDetail.style.transition='none';
+  panelDetail.classList.add('expanded');
 }
-
-function showJumpMark() {
-  if (!currentJumpMc) return;
-  var p = mcToPixel(currentJumpMc.x, currentJumpMc.z);
-  jumpMark.style.display = 'block';
-  jumpMark.style.left = p.x + 'px';
-  jumpMark.style.top = p.y + 'px';
+function hDragMove(y){
+  if(!hDragging)return;
+  var dy=hStartY-y;
+  if(Math.abs(dy)>6)hMoved=true;
+  var nh=Math.min(Math.max(hStartH+dy,0),hMaxPx);
+  panelDetail.style.maxHeight=nh+'px';
 }
-
-// ===== タップで座標表示 =====
-var tooltipTimer = null;
-function onMapTap(clientX, clientY) {
-  var rect = mapArea.getBoundingClientRect();
-  var lx = clientX - rect.left;
-  var ly = clientY - rect.top;
-  var imgLeft = view.x, imgTop = view.y;
-  var imgRight = view.x + IMG_W * view.scale;
-  var imgBottom = view.y + IMG_H * view.scale;
-  if (lx < imgLeft || lx > imgRight || ly < imgTop || ly > imgBottom) return;
-
-  tapMark.style.display = 'block';
-  tapMark.style.left = lx + 'px';
-  tapMark.style.top = ly + 'px';
-
-  var mc = pixelToMc(lx, ly);
-  var geo = mcToGeo(mc.x, mc.z);
-  hdrInfo.textContent = 'X:' + mc.x + ' Z:' + mc.z + ' | ' + geo.lat + '\u00b0N ' + geo.lng + '\u00b0E';
-
-  tooltip.textContent = 'X:' + mc.x + ' Z:' + mc.z;
-  tooltip.style.display = 'block';
-  var tx = lx + 12, ty = ly - 30;
-  if (tx + 150 > rect.width) tx = lx - 160;
-  if (ty < 0) ty = ly + 14;
-  tooltip.style.left = tx + 'px';
-  tooltip.style.top = ty + 'px';
-
-  if (tooltipTimer) clearTimeout(tooltipTimer);
-  tooltipTimer = setTimeout(function () { tooltip.style.display = 'none'; }, 2500);
+function hDragEnd(){
+  if(!hDragging)return;
+  hDragging=false;
+  panelDetail.style.transition='';
+  if(!hMoved){setDetailExpanded(!detailExpanded);return;}
+  var h=panelDetail.getBoundingClientRect().height;
+  setDetailExpanded(h>hMaxPx*0.3);
 }
+panelHandle.addEventListener('touchstart',function(e){hDragStart(e.touches[0].clientY);},{passive:true});
+panelHandle.addEventListener('touchmove',function(e){if(!hDragging)return;e.preventDefault();hDragMove(e.touches[0].clientY);},{passive:false});
+panelHandle.addEventListener('touchend',hDragEnd);
+panelHandle.addEventListener('touchcancel',hDragEnd);
+panelHandle.addEventListener('mousedown',function(e){
+  hDragStart(e.clientY);
+  function mm(e2){hDragMove(e2.clientY);}
+  function mu(){hDragEnd();window.removeEventListener('mousemove',mm);window.removeEventListener('mouseup',mu);}
+  window.addEventListener('mousemove',mm);window.addEventListener('mouseup',mu);
+});
 
-// ===== タブ切り替え =====
-function switchTab(name) {
-  var buttons = document.querySelectorAll('.tab-btn');
-  for (var i = 0; i < buttons.length; i++) {
-    if (buttons[i].getAttribute('data-tab') === name) {
-      buttons[i].classList.add('active');
-    } else {
-      buttons[i].classList.remove('active');
-    }
-  }
-  var contents = document.querySelectorAll('.tab-content');
-  for (var j = 0; j < contents.length; j++) {
-    contents[j].classList.remove('active');
-  }
-  document.getElementById('tab-' + name).classList.add('active');
+// ===== タブ =====
+function switchTab(name){
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-tab')===name);});
+  document.querySelectorAll('.tab-content').forEach(function(c){c.classList.remove('active');});
+  document.getElementById('tab-'+name).classList.add('active');
+  setDetailExpanded(false);
+  if(name==='jump'){panelDetail.style.display='none';panelHandle.style.opacity='0.4';handleLabel.textContent='';}
+  else{panelDetail.style.display='';panelHandle.style.opacity='1';}
 }
+document.querySelectorAll('.tab-btn').forEach(function(b){
+  b.addEventListener('click',function(){switchTab(this.getAttribute('data-tab'));});
+});
+document.getElementById('tab-btn-players').addEventListener('click',function(){
+  if(!liveActive){liveActive=true;liveToggleBtn.textContent='ライブ表示: ON';liveToggleBtn.classList.add('danger');startLive();}
+});
 
-// ===== ユーティリティ =====
-function escapeHtml(s) {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+// ===== タッチ/マウス操作（マップ） =====
+var pointers={},panActive=false,panLastX=0,panLastY=0;
+var pinchActive=false,pinchDist=0,pinchMidX=0,pinchMidY=0;
+var isTap=false,tapStartX=0,tapStartY=0,tapStartTime=0;
 
-// ===== タッチ/マウス操作 =====
-var pointers = {};
-var panActive = false, panLastX = 0, panLastY = 0;
-var pinchActive = false, pinchDist = 0, pinchMidX = 0, pinchMidY = 0;
-var isTap = false, tapStartX = 0, tapStartY = 0, tapStartTime = 0;
-
-function onTouchStart(e) {
-  if (e.target.closest('#zoom-controls')) return;
+function onTouchStart(e){
+  if(e.target.closest('#zoom-controls')||e.target.closest('#panel'))return;
   e.preventDefault();
-  var touches = e.changedTouches;
-  for (var i = 0; i < touches.length; i++) {
-    pointers[touches[i].identifier] = { x: touches[i].clientX, y: touches[i].clientY };
-  }
-  var keys = Object.keys(pointers);
-  if (keys.length === 1) {
-    var p = pointers[keys[0]];
-    panActive = true; pinchActive = false;
-    panLastX = p.x; panLastY = p.y;
-    isTap = true; tapStartX = p.x; tapStartY = p.y; tapStartTime = Date.now();
-  } else if (keys.length === 2) {
-    panActive = false; pinchActive = true; isTap = false;
-    var p0 = pointers[keys[0]], p1 = pointers[keys[1]];
-    pinchDist = Math.hypot(p1.x - p0.x, p1.y - p0.y);
-    pinchMidX = (p0.x + p1.x) / 2;
-    pinchMidY = (p0.y + p1.y) / 2;
-  }
+  for(var i=0;i<e.changedTouches.length;i++)pointers[e.changedTouches[i].identifier]={x:e.changedTouches[i].clientX,y:e.changedTouches[i].clientY};
+  var keys=Object.keys(pointers);
+  if(keys.length===1){var p=pointers[keys[0]];panActive=true;pinchActive=false;panLastX=p.x;panLastY=p.y;isTap=true;tapStartX=p.x;tapStartY=p.y;tapStartTime=Date.now();}
+  else if(keys.length===2){panActive=false;pinchActive=true;isTap=false;var p0=pointers[keys[0]],p1=pointers[keys[1]];pinchDist=Math.hypot(p1.x-p0.x,p1.y-p0.y);pinchMidX=(p0.x+p1.x)/2;pinchMidY=(p0.y+p1.y)/2;}
 }
-
-function onTouchMove(e) {
+function onTouchMove(e){
+  if(e.target.closest('#panel'))return;
   e.preventDefault();
-  var touches = e.changedTouches;
-  for (var i = 0; i < touches.length; i++) {
-    pointers[touches[i].identifier] = { x: touches[i].clientX, y: touches[i].clientY };
-  }
-  var keys = Object.keys(pointers);
-  if (keys.length === 1 && panActive) {
-    var p = pointers[keys[0]];
-    var dx = p.x - panLastX, dy = p.y - panLastY;
-    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) isTap = false;
-    view.x += dx; view.y += dy;
-    panLastX = p.x; panLastY = p.y;
-    clampView(); applyView();
-  } else if (keys.length === 2 && pinchActive) {
-    var p0 = pointers[keys[0]], p1 = pointers[keys[1]];
-    var dist = Math.hypot(p1.x - p0.x, p1.y - p0.y);
-    var midX = (p0.x + p1.x) / 2, midY = (p0.y + p1.y) / 2;
-    var rect = mapArea.getBoundingClientRect();
-    var prevOx = pinchMidX - rect.left, prevOy = pinchMidY - rect.top;
-    var minScale = Math.min(rect.width / IMG_W, rect.height / IMG_H);
-    var newScale = Math.min(Math.max(view.scale * dist / pinchDist, minScale), 15);
-    view.x = prevOx - (prevOx - view.x) * (newScale / view.scale);
-    view.y = prevOy - (prevOy - view.y) * (newScale / view.scale);
-    view.scale = newScale;
-    view.x += (midX - pinchMidX);
-    view.y += (midY - pinchMidY);
-    pinchDist = dist; pinchMidX = midX; pinchMidY = midY;
-    clampView(); applyView();
-  }
+  for(var i=0;i<e.changedTouches.length;i++)pointers[e.changedTouches[i].identifier]={x:e.changedTouches[i].clientX,y:e.changedTouches[i].clientY};
+  var keys=Object.keys(pointers);
+  if(keys.length===1&&panActive){var p=pointers[keys[0]];var dx=p.x-panLastX,dy=p.y-panLastY;if(Math.abs(dx)>3||Math.abs(dy)>3)isTap=false;view.x+=dx;view.y+=dy;panLastX=p.x;panLastY=p.y;clampView();applyView();}
+  else if(keys.length===2&&pinchActive){var p0=pointers[keys[0]],p1=pointers[keys[1]];var dist=Math.hypot(p1.x-p0.x,p1.y-p0.y);var midX=(p0.x+p1.x)/2,midY=(p0.y+p1.y)/2;var rect=mapArea.getBoundingClientRect();var prevOx=pinchMidX-rect.left,prevOy=pinchMidY-rect.top;var minScale=Math.min(rect.width/IMG_W,rect.height/IMG_H);var ns=Math.min(Math.max(view.scale*dist/pinchDist,minScale),15);view.x=prevOx-(prevOx-view.x)*(ns/view.scale);view.y=prevOy-(prevOy-view.y)*(ns/view.scale);view.scale=ns;view.x+=(midX-pinchMidX);view.y+=(midY-pinchMidY);pinchDist=dist;pinchMidX=midX;pinchMidY=midY;clampView();applyView();}
 }
-
-function onTouchEnd(e) {
-  e.preventDefault();
-  var touches = e.changedTouches;
-  for (var i = 0; i < touches.length; i++) {
-    delete pointers[touches[i].identifier];
-  }
-  var remaining = Object.keys(pointers).length;
-  if (remaining === 0) {
-    if (isTap && (Date.now() - tapStartTime) < 300) {
-      onMapTap(tapStartX, tapStartY);
-    }
-    panActive = false; pinchActive = false; isTap = false;
-  } else if (remaining === 1) {
-    pinchActive = false; panActive = true; isTap = false;
-    var lastKey = Object.keys(pointers)[0];
-    panLastX = pointers[lastKey].x; panLastY = pointers[lastKey].y;
-  }
+function onTouchEnd(e){
+  for(var i=0;i<e.changedTouches.length;i++)delete pointers[e.changedTouches[i].identifier];
+  var rem=Object.keys(pointers).length;
+  if(rem===0){if(isTap&&(Date.now()-tapStartTime)<300)onMapTap(tapStartX,tapStartY);panActive=false;pinchActive=false;isTap=false;}
+  else if(rem===1){pinchActive=false;panActive=true;isTap=false;var lk=Object.keys(pointers)[0];panLastX=pointers[lk].x;panLastY=pointers[lk].y;}
 }
+function onTouchCancel(e){for(var i=0;i<e.changedTouches.length;i++)delete pointers[e.changedTouches[i].identifier];panActive=false;pinchActive=false;isTap=false;}
 
-function onTouchCancel(e) {
-  var touches = e.changedTouches;
-  for (var i = 0; i < touches.length; i++) {
-    delete pointers[touches[i].identifier];
-  }
-  panActive = false; pinchActive = false; isTap = false;
-}
+mapArea.addEventListener('touchstart',onTouchStart,{passive:false});
+mapArea.addEventListener('touchmove',onTouchMove,{passive:false});
+mapArea.addEventListener('touchend',onTouchEnd,{passive:false});
+mapArea.addEventListener('touchcancel',onTouchCancel,{passive:false});
 
-// マウスクリックでもタップ扱い（PC確認用、ドラッグ後は無視）
-mapArea.addEventListener('click', function (e) {
-  if (e.target.closest('#zoom-controls')) return;
-  if (mouseMoved) { mouseMoved = false; return; }
-  onMapTap(e.clientX, e.clientY);
-});
+var mouseDragging=false,mouseLastX=0,mouseLastY=0,mouseMoved=false;
+mapArea.addEventListener('click',function(e){if(e.target.closest('#zoom-controls')||e.target.closest('#panel'))return;if(mouseMoved){mouseMoved=false;return;}onMapTap(e.clientX,e.clientY);});
+mapArea.addEventListener('mousedown',function(e){if(e.target.closest('#zoom-controls')||e.target.closest('#panel'))return;mouseDragging=true;mouseMoved=false;mouseLastX=e.clientX;mouseLastY=e.clientY;});
+window.addEventListener('mousemove',function(e){if(!mouseDragging)return;var dx=e.clientX-mouseLastX,dy=e.clientY-mouseLastY;if(Math.abs(dx)>3||Math.abs(dy)>3)mouseMoved=true;view.x+=dx;view.y+=dy;mouseLastX=e.clientX;mouseLastY=e.clientY;clampView();applyView();});
+window.addEventListener('mouseup',function(){mouseDragging=false;});
+mapArea.addEventListener('wheel',function(e){e.preventDefault();var rect=mapArea.getBoundingClientRect();var ox=e.clientX-rect.left,oy=e.clientY-rect.top;var minScale=Math.min(rect.width/IMG_W,rect.height/IMG_H);var factor=e.deltaY<0?1.15:1/1.15;var ns=Math.min(Math.max(view.scale*factor,minScale),15);view.x=ox-(ox-view.x)*(ns/view.scale);view.y=oy-(oy-view.y)*(ns/view.scale);view.scale=ns;clampView();applyView();},{passive:false});
 
-mapArea.addEventListener('touchstart', onTouchStart, { passive: false });
-mapArea.addEventListener('touchmove', onTouchMove, { passive: false });
-mapArea.addEventListener('touchend', onTouchEnd, { passive: false });
-mapArea.addEventListener('touchcancel', onTouchCancel, { passive: false });
+// ===== ズームボタン =====
+function zoomBy(factor){var rect=mapArea.getBoundingClientRect();var minScale=Math.min(rect.width/IMG_W,rect.height/IMG_H);var ns=Math.min(Math.max(view.scale*factor,minScale),15);var ox=rect.width/2,oy=rect.height/2;view.x=ox-(ox-view.x)*(ns/view.scale);view.y=oy-(oy-view.y)*(ns/view.scale);view.scale=ns;clampView();applyView();}
+function bindZoomBtn(el,factor){var fired=false;function trigger(e){e.preventDefault();e.stopPropagation();if(fired)return;fired=true;zoomBy(factor);setTimeout(function(){fired=false;},150);}el.addEventListener('touchstart',trigger,{passive:false});el.addEventListener('mousedown',trigger);el.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();});}
+bindZoomBtn(document.getElementById('zoom-in'),1.4);
+bindZoomBtn(document.getElementById('zoom-out'),1/1.4);
 
-// ===== ボタン結線（addEventListenerで確実に） =====
-document.getElementById('btn-jump').addEventListener('click', function () {
-  doJumpTo();
-  showJumpMark();
-});
+document.getElementById('btn-jump').addEventListener('click',doJumpTo);
 
-var tabButtons = document.querySelectorAll('.tab-btn');
-for (var t = 0; t < tabButtons.length; t++) {
-  tabButtons[t].addEventListener('click', function () {
-    switchTab(this.getAttribute('data-tab'));
-  });
-}
-
-// 「プレイヤー」タブ（実質ライブタブ）を押したら自動でライブ表示をONにする
-document.getElementById('tab-btn-players').addEventListener('click', function () {
-  if (!liveActive) {
-    liveActive = true;
-    liveToggleBtn.textContent = 'ライブ表示: ON';
-    liveToggleBtn.classList.add('danger');
-    startLive();
-  }
-});
-
-// ===== PC: マウスホイールでズーム =====
-mapArea.addEventListener('wheel', function (e) {
-  e.preventDefault();
-  var rect = mapArea.getBoundingClientRect();
-  var ox = e.clientX - rect.left;
-  var oy = e.clientY - rect.top;
-  var minScale = Math.min(rect.width / IMG_W, rect.height / IMG_H);
-  var factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-  var newScale = Math.min(Math.max(view.scale * factor, minScale), 15);
-  view.x = ox - (ox - view.x) * (newScale / view.scale);
-  view.y = oy - (oy - view.y) * (newScale / view.scale);
-  view.scale = newScale;
-  clampView();
-  applyView();
-}, { passive: false });
-
-// ===== PC: マウスドラッグでパン =====
-var mouseDragging = false;
-var mouseLastX = 0, mouseLastY = 0;
-var mouseMoved = false;
-
-mapArea.addEventListener('mousedown', function (e) {
-  if (e.target.closest('#zoom-controls')) return;
-  mouseDragging = true;
-  mouseMoved = false;
-  mouseLastX = e.clientX;
-  mouseLastY = e.clientY;
-});
-
-window.addEventListener('mousemove', function (e) {
-  if (!mouseDragging) return;
-  var dx = e.clientX - mouseLastX;
-  var dy = e.clientY - mouseLastY;
-  if (Math.abs(dx) > 3 || Math.abs(dy) > 3) mouseMoved = true;
-  view.x += dx;
-  view.y += dy;
-  mouseLastX = e.clientX;
-  mouseLastY = e.clientY;
-  clampView();
-  applyView();
-});
-
-window.addEventListener('mouseup', function () {
-  mouseDragging = false;
-});
-
-// ===== ズームボタン（PC・スマホ共通） =====
-function zoomBy(factor) {
-  var rect = mapArea.getBoundingClientRect();
-  var ox = rect.width / 2;
-  var oy = rect.height / 2;
-  var minScale = Math.min(rect.width / IMG_W, rect.height / IMG_H);
-  var newScale = Math.min(Math.max(view.scale * factor, minScale), 15);
-  view.x = ox - (ox - view.x) * (newScale / view.scale);
-  view.y = oy - (oy - view.y) * (newScale / view.scale);
-  view.scale = newScale;
-  clampView();
-  applyView();
-}
-
-// 指定したMC座標を画面中央に置き、指定倍率までズームする
-function zoomToMcCoord(mcX, mcZ, targetScale) {
-  var rect = mapArea.getBoundingClientRect();
-  var rx = (mcX - MAP_BOUNDS.x1) / (MAP_BOUNDS.x2 - MAP_BOUNDS.x1);
-  var rz = (mcZ - MAP_BOUNDS.z1) / (MAP_BOUNDS.z2 - MAP_BOUNDS.z1);
-  var minScale = Math.min(rect.width / IMG_W, rect.height / IMG_H);
-  var newScale = Math.min(Math.max(targetScale, minScale), 15);
-
-  // 画像内でのその座標のピクセル位置（スケール適用後）
-  var imgX = rx * IMG_W * newScale;
-  var imgY = rz * IMG_H * newScale;
-
-  // 画面中央にその点が来るようview.x, view.yを設定
-  view.x = rect.width / 2 - imgX;
-  view.y = rect.height / 2 - imgY;
-  view.scale = newScale;
-
-  clampView();
-  applyView();
-}
-
-function bindZoomButton(el, factor) {
-  var fired = false;
-  function trigger(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    if (fired) return;
-    fired = true;
-    zoomBy(factor);
-    setTimeout(function () { fired = false; }, 150);
-  }
-  el.addEventListener('touchstart', trigger, { passive: false });
-  el.addEventListener('mousedown', trigger);
-  el.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); });
-}
-
-bindZoomButton(document.getElementById('zoom-in'), 1.4);
-bindZoomButton(document.getElementById('zoom-out'), 1 / 1.4);
-
-// =====================================================
-// Firebase ライブプレイヤー表示
-// =====================================================
-// ここにFirebaseコンソールの「プロジェクトの設定」→
-// 「全般」タブにある firebaseConfig の値を貼り付けてください。
-// Realtime Database の URL (databaseURL) が特に重要です。
-var firebaseConfig = {
-  apiKey: "AIzaSyBteWiwks-JZutnFPLY9tKWdqseHX-VKqs",
-  authDomain: "men-earth-map.firebaseapp.com",
-  databaseURL: "https://men-earth-map-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "men-earth-map",
-  storageBucket: "men-earth-map.firebasestorage.app",
-  messagingSenderId: "696596920849",
-  appId: "1:696596920849:web:105b41c546d95436804fb0"
+// ===== Firebase =====
+var firebaseConfig={
+  apiKey:"AIzaSyBteWiwks-JZutnFPLY9tKWdqseHX-VKqs",
+  authDomain:"men-earth-map.firebaseapp.com",
+  databaseURL:"https://men-earth-map-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:"men-earth-map",
+  storageBucket:"men-earth-map.firebasestorage.app",
+  messagingSenderId:"696596920849",
+  appId:"1:696596920849:web:105b41c546d95436804fb0"
 };
 
-var liveActive = false;
-var liveMarkers = {};      // { mcid: {el, x, z} }
-var firebaseApp = null;
-var playersRef = null;
-var outsideHistoryRef = null;
+var liveActive=false,liveMarkers={},firebaseApp=null,playersRef=null,outsideHistoryRef=null;
+var liveToggleBtn=document.getElementById('btn-live-toggle');
+var liveStatusChip=document.getElementById('live-status');
+var liveCountChip=document.getElementById('live-count');
 
-var liveToggleBtn = document.getElementById('btn-live-toggle');
-var liveStatusChip = document.getElementById('live-status');
-var liveCountChip = document.getElementById('live-count');
+function initFirebase(){
+  if(firebaseApp)return true;
+  if(typeof firebase==='undefined'){showError('Firebase SDKの読み込みに失敗しました。');return false;}
+  try{firebaseApp=firebase.initializeApp(firebaseConfig);playersRef=firebase.database().ref('players');outsideHistoryRef=firebase.database().ref('outside_history');return true;}
+  catch(e){showError('Firebase初期化エラー: '+(e.message||e));return false;}
+}
 
-function initFirebase() {
-  if (firebaseApp) return true;
-  if (typeof firebase === 'undefined') {
-    liveStatusChip.textContent = 'SDK読込失敗（再読込してください）';
-    showError('Firebase SDKの読み込みに失敗しました。ページを再読込するか、通信環境の良い場所でお試しください。');
-    return false;
+function hueFromString(s){var h=0;for(var i=0;i<s.length;i++)h=(h+s.charCodeAt(i)*7)%360;return h;}
+
+function upsertLiveMarker(mcid,x,z){
+  var entry=liveMarkers[mcid];
+  if(!entry){
+    var el=document.createElement('div');el.className='player-mark live-mark';
+    var lb=document.createElement('div');lb.className='label';lb.textContent=mcid;
+    var ic=document.createElement('div');ic.className='icon';ic.style.background='hsl('+hueFromString(mcid)+',55%,40%)';ic.textContent=mcid.charAt(0).toUpperCase();
+    var ai=new Image();ai.alt=mcid;
+    ai.onload=function(){ic.textContent='';ic.appendChild(ai);};
+    ai.src='https://crafatar.com/avatars/'+encodeURIComponent(mcid)+'?size=32&overlay';
+    el.appendChild(lb);el.appendChild(ic);mapArea.appendChild(el);
+    entry={el:el,x:x,z:z};liveMarkers[mcid]=entry;
   }
-  try {
-    firebaseApp = firebase.initializeApp(firebaseConfig);
-    playersRef = firebase.database().ref('players');
-    outsideHistoryRef = firebase.database().ref('outside_history');
-    return true;
-  } catch (e) {
-    console.error(e);
-    var msg = (e && e.message) ? e.message : String(e);
-    liveStatusChip.textContent = '初期化エラー: ' + msg;
-    showError('Firebaseの初期化に失敗しました: ' + msg);
-    return false;
-  }
+  entry.x=x;entry.z=z;
+  var p=mcToPixel(x,z);entry.el.style.left=p.x+'px';entry.el.style.top=p.y+'px';
 }
+function removeLiveMarker(mcid){var e=liveMarkers[mcid];if(!e)return;e.el.parentNode.removeChild(e.el);delete liveMarkers[mcid];}
+function clearAllLiveMarkers(){Object.keys(liveMarkers).forEach(removeLiveMarker);}
+function updateLiveMarkerPositions(){Object.keys(liveMarkers).forEach(function(mcid){var e=liveMarkers[mcid];var p=mcToPixel(e.x,e.z);e.el.style.left=p.x+'px';e.el.style.top=p.y+'px';});}
 
-function hueFromString(str) {
-  var hue = 0;
-  for (var i = 0; i < str.length; i++) { hue = (hue + str.charCodeAt(i) * 7) % 360; }
-  return hue;
-}
+var livePlayerListEl=document.getElementById('live-player-list');
+var outsideSectionEl=document.getElementById('outside-section');
+var outsidePlayerListEl=document.getElementById('outside-player-list');
+var outsideCountEl=document.getElementById('outside-count');
+var outsideHistory={};
 
-function upsertLiveMarker(mcid, x, z) {
-  var entry = liveMarkers[mcid];
-  if (!entry) {
-    var el = document.createElement('div');
-    el.className = 'player-mark live-mark';
+function formatTime(d){return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');}
 
-    var label = document.createElement('div');
-    label.className = 'label';
-    label.textContent = mcid;
-
-    var icon = document.createElement('div');
-    icon.className = 'icon';
-    icon.style.background = 'hsl(' + hueFromString(mcid) + ',55%,40%)';
-    // 先に頭文字を表示しておき、アバター画像が読み込めたら差し替える
-    icon.textContent = mcid.charAt(0).toUpperCase();
-
-    var avatarImg = new Image();
-    avatarImg.alt = mcid;
-    avatarImg.onload = function () {
-      icon.textContent = '';
-      icon.appendChild(avatarImg);
-    };
-    avatarImg.onerror = function () {
-      // 読み込み失敗時は頭文字のまま（何もしない）
-    };
-    avatarImg.src = 'https://crafatar.com/avatars/' + encodeURIComponent(mcid) + '?size=32&overlay';
-
-    el.appendChild(label);
-    el.appendChild(icon);
-    mapArea.appendChild(el);
-
-    entry = { el: el, x: x, z: z };
-    liveMarkers[mcid] = entry;
-  }
-  entry.x = x;
-  entry.z = z;
-  var p = mcToPixel(x, z);
-  entry.el.style.left = p.x + 'px';
-  entry.el.style.top = p.y + 'px';
-}
-
-function removeLiveMarker(mcid) {
-  var entry = liveMarkers[mcid];
-  if (!entry) return;
-  entry.el.parentNode.removeChild(entry.el);
-  delete liveMarkers[mcid];
-}
-
-function clearAllLiveMarkers() {
-  Object.keys(liveMarkers).forEach(removeLiveMarker);
-}
-
-function updateLiveMarkerPositions() {
-  Object.keys(liveMarkers).forEach(function (mcid) {
-    var entry = liveMarkers[mcid];
-    var p = mcToPixel(entry.x, entry.z);
-    entry.el.style.left = p.x + 'px';
-    entry.el.style.top = p.y + 'px';
-  });
-}
-
-var livePlayerListEl = document.getElementById('live-player-list');
-var outsideSectionEl = document.getElementById('outside-section');
-var outsidePlayerListEl = document.getElementById('outside-player-list');
-var outsideCountEl = document.getElementById('outside-count');
-
-// 座標がマップ範囲内かどうか
-function isInsideMapBounds(x, z) {
-  return x >= MAP_BOUNDS.x1 && x <= MAP_BOUNDS.x2 &&
-         z >= MAP_BOUNDS.z1 && z <= MAP_BOUNDS.z2;
-}
-
-// マップ外に出た記録。Firebaseの outside_history ノードから受信した
-// データをそのままキャッシュしている（Minecraftサーバー側が記録する）。
-// ※オーバーワールドのプレイヤーのみが対象（ネザー・エンドはマイクラ側で
-//   そもそも送信対象外になっている）。
-// { mcid: { x, z, time(Dateオブジェクト) } }
-var outsideHistory = {};
-
-function formatTime(date) {
-  var hh = String(date.getHours()).padStart(2, '0');
-  var mm = String(date.getMinutes()).padStart(2, '0');
-  var ss = String(date.getSeconds()).padStart(2, '0');
-  return hh + ':' + mm + ':' + ss;
-}
-
-// 1人分のリスト項目DOMを作る（範囲内リスト用）
-function buildPlayerListItem(mcid, p) {
-  var item = document.createElement('div');
-  item.className = 'live-list-item';
-
-  var avatarWrap = document.createElement('div');
-  avatarWrap.className = 'avatar';
-  avatarWrap.style.background = 'hsl(' + hueFromString(mcid) + ',55%,40%)';
-  avatarWrap.textContent = mcid.charAt(0).toUpperCase();
-
-  var avatarImg = new Image();
-  avatarImg.alt = mcid;
-  avatarImg.onload = function () {
-    avatarWrap.textContent = '';
-    avatarWrap.appendChild(avatarImg);
-  };
-  avatarImg.onerror = function () {
-    // 読み込み失敗時は頭文字のまま（何もしない）
-  };
-  avatarImg.src = 'https://crafatar.com/avatars/' + encodeURIComponent(mcid) + '?size=28&overlay';
-
-  var info = document.createElement('div');
-  info.className = 'info';
-
-  var nameEl = document.createElement('div');
-  nameEl.className = 'mcid';
-  nameEl.textContent = mcid;
-
-  var coordsEl = document.createElement('div');
-  coordsEl.className = 'coords';
-  coordsEl.textContent = 'X: ' + Math.round(p.x) + '  Z: ' + Math.round(p.z);
-
-  info.appendChild(nameEl);
-  info.appendChild(coordsEl);
-  item.appendChild(avatarWrap);
-  item.appendChild(info);
-
-  (function (px, pz) {
-    var fired = false;
-    function handleActivate(e) {
-      if (e) e.preventDefault();
-      if (fired) return;
-      fired = true;
-      zoomToMcCoord(px, pz, 6);
-      setTimeout(function () { fired = false; }, 300);
-    }
-    item.addEventListener('touchend', handleActivate, { passive: false });
-    item.addEventListener('click', handleActivate);
-  })(p.x, p.z);
-
+function buildPlayerListItem(mcid,p){
+  var item=document.createElement('div');item.className='live-list-item';
+  var av=document.createElement('div');av.className='avatar';av.style.background='hsl('+hueFromString(mcid)+',55%,40%)';av.textContent=mcid.charAt(0).toUpperCase();
+  var ai=new Image();ai.alt=mcid;ai.onload=function(){av.textContent='';av.appendChild(ai);};ai.src='https://crafatar.com/avatars/'+encodeURIComponent(mcid)+'?size=28&overlay';
+  var info=document.createElement('div');info.className='info';
+  var ne=document.createElement('div');ne.className='mcid';ne.textContent=mcid;
+  var co=document.createElement('div');co.className='coords';co.textContent='X: '+Math.round(p.x)+'  Z: '+Math.round(p.z);
+  info.appendChild(ne);info.appendChild(co);item.appendChild(av);item.appendChild(info);
+  (function(px,pz){
+    var fired=false;
+    function act(e){if(e)e.preventDefault();if(fired)return;fired=true;zoomToMcCoord(px,pz,6);setTimeout(function(){fired=false;},300);}
+    item.addEventListener('touchend',act,{passive:false});item.addEventListener('click',act);
+  })(p.x,p.z);
   return item;
 }
 
-// マップ外に出た記録1件分のリスト項目DOMを作る
-function buildOutsideHistoryItem(mcid, record) {
-  var item = document.createElement('div');
-  item.className = 'live-list-item outside-list-item';
-
-  var avatarWrap = document.createElement('div');
-  avatarWrap.className = 'avatar';
-  avatarWrap.style.background = 'hsl(' + hueFromString(mcid) + ',55%,40%)';
-  avatarWrap.textContent = mcid.charAt(0).toUpperCase();
-
-  var avatarImg = new Image();
-  avatarImg.alt = mcid;
-  avatarImg.onload = function () {
-    avatarWrap.textContent = '';
-    avatarWrap.appendChild(avatarImg);
-  };
-  avatarImg.onerror = function () {
-    // 読み込み失敗時は頭文字のまま（何もしない）
-  };
-  avatarImg.src = 'https://crafatar.com/avatars/' + encodeURIComponent(mcid) + '?size=28&overlay';
-
-  var info = document.createElement('div');
-  info.className = 'info';
-
-  var nameEl = document.createElement('div');
-  nameEl.className = 'mcid';
-  nameEl.textContent = mcid;
-
-  var coordsEl = document.createElement('div');
-  coordsEl.className = 'coords';
-  coordsEl.textContent = 'X: ' + Math.round(record.x) + '  Z: ' + Math.round(record.z) + '  ' + formatTime(record.time) + ' に検出';
-
-  info.appendChild(nameEl);
-  info.appendChild(coordsEl);
-  item.appendChild(avatarWrap);
-  item.appendChild(info);
-
-  (function (px, pz) {
-    var fired = false;
-    function handleActivate(e) {
-      if (e) e.preventDefault();
-      if (fired) return;
-      fired = true;
-      // マップ端にクランプしてズーム（大まかな方向確認用）
-      var cx = Math.min(Math.max(px, MAP_BOUNDS.x1), MAP_BOUNDS.x2);
-      var cz = Math.min(Math.max(pz, MAP_BOUNDS.z1), MAP_BOUNDS.z2);
-      zoomToMcCoord(cx, cz, 2);
-      setTimeout(function () { fired = false; }, 300);
-    }
-    item.addEventListener('touchend', handleActivate, { passive: false });
-    item.addEventListener('click', handleActivate);
-  })(record.x, record.z);
-
+function buildOutsideHistoryItem(mcid,record){
+  var item=document.createElement('div');item.className='live-list-item outside-list-item';
+  var av=document.createElement('div');av.className='avatar';av.style.background='hsl('+hueFromString(mcid)+',55%,40%)';av.textContent=mcid.charAt(0).toUpperCase();
+  var ai=new Image();ai.alt=mcid;ai.onload=function(){av.textContent='';av.appendChild(ai);};ai.src='https://crafatar.com/avatars/'+encodeURIComponent(mcid)+'?size=28&overlay';
+  var info=document.createElement('div');info.className='info';
+  var ne=document.createElement('div');ne.className='mcid';ne.textContent=mcid;
+  var co=document.createElement('div');co.className='coords';co.textContent='X: '+Math.round(record.x)+'  Z: '+Math.round(record.z)+'  '+formatTime(record.time)+' に検出';
+  info.appendChild(ne);info.appendChild(co);item.appendChild(av);item.appendChild(info);
+  (function(px,pz){
+    var fired=false;
+    function act(e){if(e)e.preventDefault();if(fired)return;fired=true;var cx=Math.min(Math.max(px,MAP_BOUNDS.x1),MAP_BOUNDS.x2);var cz=Math.min(Math.max(pz,MAP_BOUNDS.z1),MAP_BOUNDS.z2);zoomToMcCoord(cx,cz,2);setTimeout(function(){fired=false;},300);}
+    item.addEventListener('touchend',act,{passive:false});item.addEventListener('click',act);
+  })(record.x,record.z);
   return item;
 }
 
-function renderOutsideHistory() {
-  outsidePlayerListEl.innerHTML = '';
-  var mcids = Object.keys(outsideHistory);
-
-  if (mcids.length === 0) {
-    outsideSectionEl.style.display = 'none';
-    return;
-  }
-
-  outsideSectionEl.style.display = 'block';
-  outsideCountEl.textContent = mcids.length + '人';
-
-  // 検出時刻が新しい順に並べる
-  mcids.sort(function (a, b) {
-    return outsideHistory[b].time - outsideHistory[a].time;
-  });
-
-  mcids.forEach(function (mcid) {
-    outsidePlayerListEl.appendChild(buildOutsideHistoryItem(mcid, outsideHistory[mcid]));
-  });
+function renderOutsideHistory(){
+  outsidePlayerListEl.innerHTML='';
+  var mcids=Object.keys(outsideHistory);
+  if(mcids.length===0){outsideSectionEl.style.display='none';return;}
+  outsideSectionEl.style.display='block';
+  outsideCountEl.textContent=mcids.length+'人';
+  mcids.sort(function(a,b){return outsideHistory[b].time-outsideHistory[a].time;});
+  mcids.forEach(function(mcid){outsidePlayerListEl.appendChild(buildOutsideHistoryItem(mcid,outsideHistory[mcid]));});
 }
 
-function renderLivePlayerList(data) {
-  livePlayerListEl.innerHTML = '';
-
-  var allIds = Object.keys(data).filter(function (mcid) {
-    var p = data[mcid];
-    return p && typeof p.x === 'number' && typeof p.z === 'number';
-  });
-
-  // マップ範囲内にいるプレイヤーのみ、通常リストに表示
-  // （ネザー・エンドのプレイヤーはマイクラ側でそもそも送信対象外なので
-  //   ここには含まれない）
-  var insideIds = allIds.filter(function (mcid) {
-    var p = data[mcid];
-    return isInsideMapBounds(p.x, p.z);
-  });
-
-  insideIds.sort(function (a, b) { return a.localeCompare(b); });
-
-  // ---- 範囲内リスト ----
-  if (insideIds.length === 0) {
-    var empty = document.createElement('div');
-    empty.className = 'live-list-empty';
-    empty.textContent = 'オンラインのプレイヤーがいません';
-    livePlayerListEl.appendChild(empty);
-  } else {
-    insideIds.forEach(function (mcid) {
-      livePlayerListEl.appendChild(buildPlayerListItem(mcid, data[mcid]));
-    });
-  }
+function renderLivePlayerList(data){
+  livePlayerListEl.innerHTML='';
+  var ids=Object.keys(data).filter(function(id){var p=data[id];return p&&typeof p.x==='number'&&typeof p.z==='number'&&isInsideMapBounds(p.x,p.z);});
+  ids.sort(function(a,b){return a.localeCompare(b);});
+  if(ids.length===0){var em=document.createElement('div');em.className='live-list-empty';em.textContent='オンラインのプレイヤーがいません';livePlayerListEl.appendChild(em);}
+  else ids.forEach(function(id){livePlayerListEl.appendChild(buildPlayerListItem(id,data[id]));});
 }
 
-function startLive() {
-  if (!initFirebase()) return;
-  liveStatusChip.textContent = '接続中...';
-
-  playersRef.on('value', function (snapshot) {
-    var data = snapshot.val() || {};
-    var seenIds = {};
-
-    Object.keys(data).forEach(function (mcid) {
-      var p = data[mcid];
-      if (!p || typeof p.x !== 'number' || typeof p.z !== 'number') return;
-      seenIds[mcid] = true;
-      // マップ範囲内のプレイヤーだけ地図上にマーカーを出す
-      // （ネザー・エンドはマイクラ側で送信対象外なので、
-      //   ここに来るのは常にオーバーワールドのプレイヤー）
-      if (isInsideMapBounds(p.x, p.z)) {
-        upsertLiveMarker(mcid, p.x, p.z);
-      } else {
-        removeLiveMarker(mcid);
-      }
-    });
-
-    // データベースから消えたプレイヤーのマーカーを除去
-    Object.keys(liveMarkers).forEach(function (mcid) {
-      if (!seenIds[mcid]) removeLiveMarker(mcid);
-    });
-
+function startLive(){
+  if(!initFirebase())return;
+  liveStatusChip.textContent='接続中...';
+  playersRef.on('value',function(snap){
+    var data=snap.val()||{};var seenIds={};
+    Object.keys(data).forEach(function(mcid){var p=data[mcid];if(!p||typeof p.x!=='number'||typeof p.z!=='number')return;seenIds[mcid]=true;if(isInsideMapBounds(p.x,p.z))upsertLiveMarker(mcid,p.x,p.z);else removeLiveMarker(mcid);});
+    Object.keys(liveMarkers).forEach(function(mcid){if(!seenIds[mcid])removeLiveMarker(mcid);});
     renderLivePlayerList(data);
-
-    liveStatusChip.textContent = '接続中（リアルタイム）';
-    liveCountChip.textContent = 'プレイヤー: ' + Object.keys(seenIds).length + '人';
-  }, function (error) {
-    console.error(error);
-    var msg = (error && error.message) ? error.message : String(error);
-    liveStatusChip.textContent = 'エラー: ' + msg;
-    showError('Firebase接続エラー: ' + msg);
-  });
+    liveStatusChip.textContent='接続中（リアルタイム）';
+    liveCountChip.textContent='プレイヤー: '+Object.keys(seenIds).length+'人';
+  },function(err){showError('Firebase接続エラー: '+(err.message||err));});
 }
 
-function stopLive() {
-  if (playersRef) playersRef.off('value');
-  clearAllLiveMarkers();
-  livePlayerListEl.innerHTML = '';
-  liveStatusChip.textContent = '未接続';
-  liveCountChip.textContent = 'プレイヤー: 0人';
-  // マップ外に出た記録の購読は止めない（常時表示し続ける）
+function stopLive(){
+  if(playersRef)playersRef.off('value');
+  clearAllLiveMarkers();livePlayerListEl.innerHTML='';
+  liveStatusChip.textContent='未接続';liveCountChip.textContent='プレイヤー: 0人';
 }
 
-// ===== マップ外に出た記録（Firebase常時購読） =====
-// ライブ表示のON/OFFとは無関係に、ページを開いている間ずっと
-// outside_history を購読し続ける。Minecraftサーバー側が
-// プレイヤーの記録を書き込むので、ブラウザを閉じない限り
-// リアルタイムで反映される。
-var outsideHistoryStarted = false;
-function startOutsideHistoryWatch() {
-  if (outsideHistoryStarted) return;
-  if (!initFirebase()) return;
-  outsideHistoryStarted = true;
-
-  outsideHistoryRef.on('value', function (snapshot) {
-    var raw = snapshot.val() || {};
-    var next = {};
-    Object.keys(raw).forEach(function (mcid) {
-      var r = raw[mcid];
-      if (!r || typeof r.x !== 'number' || typeof r.z !== 'number' || !r.time) return;
-      next[mcid] = { x: r.x, z: r.z, time: new Date(r.time) };
-    });
-    outsideHistory = next;
-    renderOutsideHistory();
-  }, function (error) {
-    console.error(error);
-    // 履歴の購読エラーはライブ表示のステータス欄を汚さない程度に留める
-  });
-}
-
-liveToggleBtn.addEventListener('click', function () {
-  liveActive = !liveActive;
-  if (liveActive) {
-    liveToggleBtn.textContent = 'ライブ表示: ON';
-    liveToggleBtn.classList.add('danger');
-    startLive();
-  } else {
-    liveToggleBtn.textContent = 'ライブ表示: OFF';
-    liveToggleBtn.classList.remove('danger');
-    stopLive();
-  }
+liveToggleBtn.addEventListener('click',function(){
+  liveActive=!liveActive;
+  if(liveActive){liveToggleBtn.textContent='ライブ表示: ON';liveToggleBtn.classList.add('danger');startLive();}
+  else{liveToggleBtn.textContent='ライブ表示: OFF';liveToggleBtn.classList.remove('danger');stopLive();}
 });
 
-// 既存のupdateMarkerPositions（手動配置マーカー用）にライブマーカーの更新も連動させる
-var _origUpdateMarkerPositions = updateMarkerPositions;
-updateMarkerPositions = function () {
-  _origUpdateMarkerPositions();
-  updateLiveMarkerPositions();
-};
+// ===== マップ外記録常時購読 =====
+var outsideHistoryStarted=false;
+function startOutsideHistoryWatch(){
+  if(outsideHistoryStarted)return;
+  if(!initFirebase())return;
+  outsideHistoryStarted=true;
+  outsideHistoryRef.on('value',function(snap){
+    var raw=snap.val()||{};var next={};
+    Object.keys(raw).forEach(function(mcid){var r=raw[mcid];if(!r||typeof r.x!=='number'||typeof r.z!=='number'||!r.time)return;next[mcid]={x:r.x,z:r.z,time:new Date(r.time)};});
+    outsideHistory=next;renderOutsideHistory();
+  });
+}
 
 // ===== 初期化 =====
-window.addEventListener('resize', fitView);
-window.addEventListener('load', function () {
-  fitView();
-  setTimeout(fitView, 50);
-  setTimeout(fitView, 200);
-  // マップ外に出た記録は、ライブ表示のON/OFFに関わらず
-  // ページを開いた時点から常時監視を開始する
-  startOutsideHistoryWatch();
-});
-if (mapImg.complete) {
-  fitView();
-} else {
-  mapImg.addEventListener('load', fitView);
-}
+window.addEventListener('resize',fitView);
+window.addEventListener('load',function(){fitView();setTimeout(fitView,50);setTimeout(fitView,200);startOutsideHistoryWatch();});
+if(mapImg.complete)fitView();else mapImg.addEventListener('load',fitView);
 </script>
 </body>
 </html>
