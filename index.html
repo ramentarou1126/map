@@ -220,12 +220,20 @@ var errorTimer=null;
 function showError(msg){errorBanner.textContent=msg;errorBanner.style.background='#c0392b';errorBanner.style.display='block';if(errorTimer)clearTimeout(errorTimer);errorTimer=setTimeout(function(){errorBanner.style.display='none';},5000);}
 
 // ===== ビュー =====
+// パネルが地図の上に乗っているため、パネルの高さ分だけ
+// 有効な表示エリアを縮めてマップ全体が見えるようにする
+function panelHeight(){
+  return document.getElementById('panel').getBoundingClientRect().height||0;
+}
 function fitView(){
   var rect=mapArea.getBoundingClientRect();
   if(rect.width<=0||rect.height<=0)return;
-  view.scale=Math.min(rect.width/IMG_W,rect.height/IMG_H);
+  var ph=panelHeight();
+  var availH=rect.height-ph; // パネルより上の有効高さ
+  if(availH<=0)availH=rect.height;
+  view.scale=Math.min(rect.width/IMG_W,availH/IMG_H);
   view.x=(rect.width-IMG_W*view.scale)/2;
-  view.y=(rect.height-IMG_H*view.scale)/2;
+  view.y=(availH-IMG_H*view.scale)/2; // パネルより上の中央に配置
   applyView();
 }
 function applyView(){
@@ -237,9 +245,12 @@ function applyView(){
 }
 function clampView(){
   var rect=mapArea.getBoundingClientRect();
+  var ph=panelHeight();
+  var availH=rect.height-ph;
+  if(availH<=0)availH=rect.height;
   var cw=IMG_W*view.scale,ch=IMG_H*view.scale;
   if(cw<=rect.width){view.x=(rect.width-cw)/2;}else{if(view.x>0)view.x=0;if(view.x<rect.width-cw)view.x=rect.width-cw;}
-  if(ch<=rect.height){view.y=(rect.height-ch)/2;}else{if(view.y>0)view.y=0;if(view.y<rect.height-ch)view.y=rect.height-ch;}
+  if(ch<=availH){view.y=(availH-ch)/2;}else{if(view.y>0)view.y=0;if(view.y<availH-ch)view.y=availH-ch;}
 }
 function mcToPixel(mx,mz){
   var rx=(mx-MAP_BOUNDS.x1)/(MAP_BOUNDS.x2-MAP_BOUNDS.x1);
