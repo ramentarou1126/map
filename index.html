@@ -333,6 +333,8 @@ function setDetailExpanded(expand){
     panelDetail.classList.remove('expanded');
     handleLabel.textContent='上にスワイプで一覧表示';
   }
+  // パネル高さが変わったのでマップを再フィット
+  setTimeout(fitView, 350); // transitionが終わってから再計算
 }
 
 var hDragging=false,hMoved=false,hStartY=0,hStartH=0,hMaxPx=0;
@@ -350,6 +352,7 @@ function hDragMove(y){
   if(Math.abs(dy)>6)hMoved=true;
   var nh=Math.min(Math.max(hStartH+dy,0),hMaxPx);
   panelDetail.style.maxHeight=nh+'px';
+  fitView(); // ドラッグ中もマップを随時リサイズ
 }
 function hDragEnd(){
   if(!hDragging)return;
