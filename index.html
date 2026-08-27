@@ -20,7 +20,7 @@
 <div id="panel-detail"><div id="live-player-list"></div><div id="outside-section" style="display:none"><div class="section-divider"></div><div class="section-title-row"><span style="font-size:14px">&#127757;</span><span class="section-title-text">マップ外に出た記録</span><span class="info-chip" id="outside-count">0人</span></div><div id="outside-player-list"></div></div></div></div></div>
 <script>
 'use strict';
-const WORKER_API='https://api.menearth.com';
+const WORKER_API='https://map.hp7vvyvc25.workers.dev/';
 const MAP_BOUNDS={x1:-9215,z1:-4607,x2:9215,z2:4607};
 const IMG_W=1539,IMG_H=769,CONV={cx:51.26,ox:-4,cz:51.22,oz:1};
 function mcToGeo(x,z){return{lat:(-(z-CONV.oz)/CONV.cz).toFixed(4),lng:((x-CONV.ox)/CONV.cx).toFixed(4)}}
