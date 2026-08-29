@@ -7,68 +7,495 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+JP:wght@400;700;900&display=swap');
 :root{--grass:#6fae3e;--grass-dark:#4f7f2c;--dirt-dark:#5c4a33;--stone:#8a8a8a;--stone-dark:#545454;--obsidian:#0d0f0d;--panel-bg:#1a1d16;--panel-border:#3a3f2e;--gold:#f0c419;--gold-dark:#b8941a;--diamond:#4fd1e8;--redstone:#c0392b;--redstone-dark:#7a1f16;--emerald:#2ecc71;--text-main:#e8e6d8;--text-dim:#8a9478;--font-pixel:'Press Start 2P',monospace;--font-body:'Noto Sans JP',sans-serif}
-*{box-sizing:border-box;margin:0;padding:0}html,body{width:100%;height:100%;overflow:hidden;background:var(--obsidian);color:var(--text-main);font-family:var(--font-body)}body{display:flex;flex-direction:column}#header{flex:0 0 auto;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(0,0,0,.15)),var(--dirt-dark);border-bottom:4px solid var(--gold-dark);padding:10px 14px;display:flex;align-items:center;gap:10px}#header .logo{font-family:var(--font-pixel);font-size:14px;color:var(--gold);text-shadow:2px 2px 0 #000;white-space:nowrap}#header .logo:before{content:'\26cf\fe0e '}#hdr-info{flex:1;background:rgba(0,0,0,.45);border:2px solid var(--panel-border);border-radius:3px;padding:6px 10px;font-size:12px;color:var(--emerald);text-align:center;font-family:monospace;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.error{display:none;font-family:var(--font-pixel);font-size:11px;color:#fff;padding:10px 14px;text-align:center;flex:0 0 auto;text-shadow:1px 1px 0 #000;background:#c0392b}.error.show{display:block}#stage{flex:1;position:relative;overflow:hidden;min-height:0}#map-area{position:absolute;inset:0;overflow:hidden;background:radial-gradient(ellipse at center,#12233a 0%,#060a12 100%)}#map-img{position:absolute;image-rendering:pixelated;display:block;-webkit-user-drag:none;user-select:none;-webkit-user-select:none;pointer-events:none}#chunk-canvas{position:absolute;top:0;left:0;display:block;cursor:crosshair}#tap-mark,#jump-mark{position:absolute;transform:translate(-50%,-50%);pointer-events:none;display:none;z-index:10}#tap-mark{width:22px;height:22px}#tap-mark:before,#tap-mark:after{content:'';position:absolute;background:var(--emerald)}#tap-mark:before{left:50%;top:0;width:3px;height:100%;transform:translateX(-50%)}#tap-mark:after{top:50%;left:0;width:100%;height:3px;transform:translateY(-50%)}#jump-mark{width:26px;height:26px;z-index:15}#jump-mark:before,#jump-mark:after{content:'';position:absolute;background:var(--redstone);border-radius:1px;box-shadow:0 0 6px rgba(192,57,43,.8)}#jump-mark:before{left:50%;top:0;width:4px;height:26px;transform:translateX(-50%)}#jump-mark:after{top:50%;left:0;width:26px;height:4px;transform:translateY(-50%)}.player-mark{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;pointer-events:none;z-index:20}.player-mark .label{font-family:var(--font-pixel);font-size:8px;color:#fff;background:rgba(0,0,0,.75);padding:3px 6px;border-radius:2px;margin-bottom:4px;white-space:nowrap;border:1px solid var(--gold-dark)}.player-mark .icon{width:32px;height:32px;border:3px solid var(--gold);border-radius:3px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:16px;position:relative;overflow:hidden;box-shadow:0 0 10px rgba(240,196,25,.5),0 3px 6px rgba(0,0,0,.5)}.player-mark .icon img{width:100%;height:100%;object-fit:cover;image-rendering:pixelated;pointer-events:none}#tooltip{position:absolute;background:rgba(10,14,10,.95);border:2px solid var(--emerald);color:var(--emerald);font-family:var(--font-pixel);font-size:9px;padding:6px 10px;border-radius:3px;pointer-events:none;display:none;z-index:30;white-space:nowrap}#country-info{position:absolute;background:rgba(10,14,10,.98);border:2px solid var(--gold);color:var(--text-main);font-family:var(--font-body);font-size:14px;padding:12px 16px;border-radius:4px;pointer-events:none;display:none;z-index:31;text-align:center;min-width:120px}#country-info .country-name{font-family:var(--font-pixel);font-size:12px;color:var(--gold);margin-bottom:6px}#country-info .chunk-count{font-size:13px;color:var(--text-dim)}#zoom-controls{position:absolute;right:12px;bottom:185px;z-index:25;display:flex;flex-direction:column;gap:6px}.zoom-btn{width:44px;height:44px;font-family:var(--font-pixel);font-size:20px;color:#fff;background:var(--stone);border-top:3px solid #c9c9c9;border-left:3px solid #c9c9c9;border-right:3px solid #4a4a4a;border-bottom:3px solid #4a4a4a;cursor:pointer;display:flex;align-items:center;justify-content:center;user-select:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent}.zoom-btn:active{border-top-color:#4a4a4a;border-left-color:#4a4a4a;border-right-color:#c9c9c9;border-bottom-color:#c9c9c9}#panel{position:absolute;left:0;right:0;bottom:0;z-index:40;background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(0,0,0,.1)),var(--panel-bg);border-top:4px solid var(--panel-border);border-radius:14px 14px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.5);display:flex;flex-direction:column;max-height:88%}#panel-handle{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:5px;padding:9px 12px 4px;cursor:grab;touch-action:none;user-select:none}.handle-bar{width:46px;height:5px;border-radius:3px;background:var(--panel-border)}.handle-label{font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);min-height:9px}.tabs{display:flex;gap:8px;padding:0 12px;margin:4px 0 8px;flex:0 0 auto}.tab-btn{flex:1;font-family:var(--font-pixel);font-size:11px;padding:12px 8px;color:#cfd6c4;background:var(--stone-dark);border-top:3px solid #6e6e6e;border-left:3px solid #6e6e6e;border-right:3px solid #2c2c2c;border-bottom:5px solid #2c2c2c;border-radius:2px;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer}.tab-btn.active{color:#fff;background:var(--grass);border-top-color:#9ed46e;border-left-color:#9ed46e;border-right-color:var(--grass-dark);border-bottom-color:var(--grass-dark);box-shadow:0 0 14px rgba(111,174,62,.55);transform:translateY(-1px)}.tab-content{display:none;flex-direction:column;gap:8px;padding:0 12px 8px;flex:0 0 auto}.tab-content.active{display:flex}.field-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}.field-group{display:flex;flex-direction:column;gap:4px}.field-label{font-family:var(--font-pixel);font-size:8px;color:var(--gold)}input[type=number]{background:#0a0d08;border:2px solid var(--panel-border);color:var(--text-main);font-size:15px;padding:8px 10px;border-radius:2px;width:100px}.action-btn{font-family:var(--font-pixel);font-size:10px;color:#fff;padding:10px 14px;text-shadow:1px 1px 0 #000;cursor:pointer;background:var(--grass);border-top:3px solid #9ed46e;border-left:3px solid #9ed46e;border-right:3px solid var(--grass-dark);border-bottom:3px solid var(--grass-dark)}.action-btn.danger{background:var(--redstone);border-top-color:#e0685a;border-left-color:#e0685a;border-right-color:var(--redstone-dark);border-bottom-color:var(--redstone-dark)}.action-btn.jump{background:#2a7f92;border-top-color:var(--diamond);border-left-color:var(--diamond);border-right-color:#1a4f5c;border-bottom-color:#1a4f5c}.info-chip{font-size:12px;background:rgba(0,0,0,.4);border:2px solid var(--panel-border);color:var(--text-dim);padding:6px 10px;border-radius:3px}#panel-detail{flex:0 0 auto;overflow:hidden;max-height:0;transition:max-height .32s cubic-bezier(.2,.8,.2,1)}#panel-detail.expanded{overflow-y:auto;-webkit-overflow-scrolling:touch}#live-player-list{display:flex;flex-direction:column;gap:6px;padding:4px 12px 0}.live-list-item{display:flex;align-items:center;gap:10px;background:rgba(0,0,0,.35);border:2px solid var(--panel-border);border-radius:4px;padding:6px 10px;cursor:pointer}.avatar{width:28px;height:28px;border-radius:3px;border:2px solid var(--emerald);flex-shrink:0;background:#222;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:13px;overflow:hidden}.avatar img{width:100%;height:100%;object-fit:cover;image-rendering:pixelated}.info{display:flex;flex-direction:column;gap:1px;min-width:0}.mcid{font-size:13px;font-weight:700;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.coords{font-size:11px;color:var(--text-dim)}.live-list-empty{font-size:12px;color:var(--text-dim);text-align:center;padding:14px 0}#outside-section{padding:0 12px 16px}.section-divider{height:2px;background:var(--panel-border);margin:12px 0 10px}.section-title-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}.section-title-text{font-family:var(--font-pixel);font-size:10px;color:var(--gold);flex:1}.outside-list-item{border-color:var(--gold-dark)}.outside-list-item .avatar{border-color:var(--gold-dark)}.outside-list-item .coords{color:var(--gold)}.live-mark .icon{border-color:var(--emerald);box-shadow:0 0 10px rgba(46,204,113,.7)}.live-mark .icon:after{content:'';position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;background:var(--emerald);animation:liveBlink 1.2s ease-in-out infinite}@keyframes liveBlink{0%,100%{opacity:1}50%{opacity:.3}}
+*{box-sizing:border-box;margin:0;padding:0}html,body{width:100%;height:100%;overflow:hidden;background:var(--obsidian);color:var(--text-main);font-family:var(--font-body)}body{display:flex;flex-direction:column}
+#header{flex:0 0 auto;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(0,0,0,.15)),var(--dirt-dark);border-bottom:4px solid var(--gold-dark);padding:10px 14px;display:flex;align-items:center;gap:10px}
+#header .logo{font-family:var(--font-pixel);font-size:14px;color:var(--gold);text-shadow:2px 2px 0 #000;white-space:nowrap}
+#header .logo:before{content:'\26cf\fe0e '}
+#hdr-info{flex:1;background:rgba(0,0,0,.45);border:2px solid var(--panel-border);border-radius:3px;padding:6px 10px;font-size:12px;color:var(--emerald);text-align:center;font-family:monospace;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.error{display:none;font-family:var(--font-pixel);font-size:11px;color:#fff;padding:10px 14px;text-align:center;flex:0 0 auto;text-shadow:1px 1px 0 #000;background:#c0392b}
+.error.show{display:block}
+#stage{flex:1;position:relative;overflow:hidden;min-height:0}
+#map-area{position:absolute;inset:0;overflow:hidden;background:radial-gradient(ellipse at center,#12233a 0%,#060a12 100%)}
+#map-img{position:absolute;image-rendering:pixelated;display:block;-webkit-user-drag:none;user-select:none;-webkit-user-select:none;pointer-events:none}
+#chunk-canvas{position:absolute;top:0;left:0;display:block;cursor:crosshair}
+#tap-mark,#jump-mark{position:absolute;transform:translate(-50%,-50%);pointer-events:none;display:none;z-index:10}
+#tap-mark{width:22px;height:22px}
+#tap-mark:before,#tap-mark:after{content:'';position:absolute;background:var(--emerald)}
+#tap-mark:before{left:50%;top:0;width:3px;height:100%;transform:translateX(-50%)}
+#tap-mark:after{top:50%;left:0;width:100%;height:3px;transform:translateY(-50%)}
+#jump-mark{width:26px;height:26px;z-index:15}
+#jump-mark:before,#jump-mark:after{content:'';position:absolute;background:var(--redstone);border-radius:1px;box-shadow:0 0 6px rgba(192,57,43,.8)}
+#jump-mark:before{left:50%;top:0;width:4px;height:26px;transform:translateX(-50%)}
+#jump-mark:after{top:50%;left:0;width:26px;height:4px;transform:translateY(-50%)}
+.player-mark{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;pointer-events:none;z-index:20}
+.player-mark .label{font-family:var(--font-pixel);font-size:8px;color:#fff;background:rgba(0,0,0,.75);padding:3px 6px;border-radius:2px;margin-bottom:4px;white-space:nowrap;border:1px solid var(--gold-dark)}
+.player-mark .icon{width:32px;height:32px;border:3px solid var(--gold);border-radius:3px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:16px;position:relative;overflow:hidden;box-shadow:0 0 10px rgba(240,196,25,.5),0 3px 6px rgba(0,0,0,.5)}
+.player-mark .icon img{width:100%;height:100%;object-fit:cover;image-rendering:pixelated;pointer-events:none}
+#tooltip{position:absolute;background:rgba(10,14,10,.95);border:2px solid var(--emerald);color:var(--emerald);font-family:var(--font-pixel);font-size:9px;padding:6px 10px;border-radius:3px;pointer-events:none;display:none;z-index:30;white-space:nowrap}
+#country-popup{position:absolute;background:rgba(10,14,10,.98);border:2px solid var(--gold);color:var(--text-main);font-family:var(--font-body);font-size:14px;padding:12px 16px 10px;border-radius:4px;z-index:35;text-align:center;min-width:140px;display:none}
+#country-popup .country-name{font-family:var(--font-pixel);font-size:11px;color:var(--gold);margin-bottom:6px}
+#country-popup .chunk-count{font-size:12px;color:var(--text-dim);margin-bottom:8px}
+#country-popup .popup-close{font-family:var(--font-pixel);font-size:10px;color:#fff;background:var(--stone-dark);border:2px solid #6e6e6e;padding:4px 10px;cursor:pointer;border-radius:2px}
+#zoom-controls{position:absolute;right:12px;bottom:185px;z-index:25;display:flex;flex-direction:column;gap:6px}
+.zoom-btn{width:44px;height:44px;font-family:var(--font-pixel);font-size:20px;color:#fff;background:var(--stone);border-top:3px solid #c9c9c9;border-left:3px solid #c9c9c9;border-right:3px solid #4a4a4a;border-bottom:3px solid #4a4a4a;cursor:pointer;display:flex;align-items:center;justify-content:center;user-select:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.zoom-btn:active{border-top-color:#4a4a4a;border-left-color:#4a4a4a;border-right-color:#c9c9c9;border-bottom-color:#c9c9c9}
+#panel{position:absolute;left:0;right:0;bottom:0;z-index:40;background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(0,0,0,.1)),var(--panel-bg);border-top:4px solid var(--panel-border);border-radius:14px 14px 0 0;box-shadow:0 -8px 24px rgba(0,0,0,.5);display:flex;flex-direction:column;max-height:88%}
+#panel-handle{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:5px;padding:9px 12px 4px;cursor:grab;touch-action:none;user-select:none}
+.handle-bar{width:46px;height:5px;border-radius:3px;background:var(--panel-border)}
+.handle-label{font-family:var(--font-pixel);font-size:7px;color:var(--text-dim);min-height:9px}
+.tabs{display:flex;gap:8px;padding:0 12px;margin:4px 0 8px;flex:0 0 auto}
+.tab-btn{flex:1;font-family:var(--font-pixel);font-size:11px;padding:12px 8px;color:#cfd6c4;background:var(--stone-dark);border-top:3px solid #6e6e6e;border-left:3px solid #6e6e6e;border-right:3px solid #2c2c2c;border-bottom:5px solid #2c2c2c;border-radius:2px;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer}
+.tab-btn.active{color:#fff;background:var(--grass);border-top-color:#9ed46e;border-left-color:#9ed46e;border-right-color:var(--grass-dark);border-bottom-color:var(--grass-dark);box-shadow:0 0 14px rgba(111,174,62,.55);transform:translateY(-1px)}
+.tab-content{display:none;flex-direction:column;gap:8px;padding:0 12px 8px;flex:0 0 auto}
+.tab-content.active{display:flex}
+.field-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.field-group{display:flex;flex-direction:column;gap:4px}
+.field-label{font-family:var(--font-pixel);font-size:8px;color:var(--gold)}
+input[type=number]{background:#0a0d08;border:2px solid var(--panel-border);color:var(--text-main);font-size:15px;padding:8px 10px;border-radius:2px;width:100px}
+.action-btn{font-family:var(--font-pixel);font-size:10px;color:#fff;padding:10px 14px;text-shadow:1px 1px 0 #000;cursor:pointer;background:var(--grass);border-top:3px solid #9ed46e;border-left:3px solid #9ed46e;border-right:3px solid var(--grass-dark);border-bottom:3px solid var(--grass-dark)}
+.action-btn.danger{background:var(--redstone);border-top-color:#e0685a;border-left-color:#e0685a;border-right-color:var(--redstone-dark);border-bottom-color:var(--redstone-dark)}
+.action-btn.jump{background:#2a7f92;border-top-color:var(--diamond);border-left-color:var(--diamond);border-right-color:#1a4f5c;border-bottom-color:#1a4f5c}
+.info-chip{font-size:12px;background:rgba(0,0,0,.4);border:2px solid var(--panel-border);color:var(--text-dim);padding:6px 10px;border-radius:3px}
+#panel-detail{flex:0 0 auto;overflow:hidden;max-height:0;transition:max-height .32s cubic-bezier(.2,.8,.2,1)}
+#panel-detail.expanded{overflow-y:auto;-webkit-overflow-scrolling:touch}
+#live-player-list{display:flex;flex-direction:column;gap:6px;padding:4px 12px 12px}
+.live-list-item{display:flex;align-items:center;gap:10px;background:rgba(0,0,0,.35);border:2px solid var(--panel-border);border-radius:4px;padding:6px 10px;cursor:pointer}
+.avatar{width:28px;height:28px;border-radius:3px;border:2px solid var(--emerald);flex-shrink:0;background:#222;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:13px;overflow:hidden}
+.avatar img{width:100%;height:100%;object-fit:cover;image-rendering:pixelated}
+.info{display:flex;flex-direction:column;gap:1px;min-width:0}
+.mcid{font-size:13px;font-weight:700;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.coords{font-size:11px;color:var(--text-dim)}
+.live-list-empty{font-size:12px;color:var(--text-dim);text-align:center;padding:14px 0}
+#country-list-wrap{display:flex;flex-direction:column;gap:6px;padding:4px 12px 12px}
+.country-list-item{display:flex;align-items:center;gap:10px;background:rgba(0,0,0,.35);border:2px solid var(--panel-border);border-radius:4px;padding:8px 10px;cursor:pointer}
+.country-color-block{width:14px;height:14px;border-radius:2px;flex-shrink:0;border:1px solid rgba(255,255,255,.2)}
+.country-item-name{flex:1;font-size:13px;font-weight:700;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.country-item-count{font-size:11px;color:var(--text-dim);white-space:nowrap}
+.country-list-empty{font-size:12px;color:var(--text-dim);text-align:center;padding:14px 0}
+.live-mark .icon{border-color:var(--emerald);box-shadow:0 0 10px rgba(46,204,113,.7)}
+.live-mark .icon:after{content:'';position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;background:var(--emerald);animation:liveBlink 1.2s ease-in-out infinite}
+@keyframes liveBlink{0%,100%{opacity:1}50%{opacity:.3}}
 </style>
 </head>
 <body>
 <div id="header"><div class="logo">麺Earth</div><div id="hdr-info">マップをタップしてください</div></div>
 <div id="error-banner" class="error"></div>
-<div id="stage"><div id="map-area"><img id="map-img" src="map-image.jpg" alt="map"><canvas id="chunk-canvas"></canvas><div id="tap-mark"></div><div id="jump-mark"></div><div id="tooltip"></div><div id="country-info"></div><div id="zoom-controls"><button type="button" class="zoom-btn" id="zoom-in">+</button><button type="button" class="zoom-btn" id="zoom-out">&minus;</button></div></div>
-<div id="panel"><div id="panel-handle"><div class="handle-bar"></div><div class="handle-label" id="handle-label">上にスワイプで一覧表示</div></div><div class="tabs"><button type="button" class="tab-btn active" data-tab="live" id="tab-btn-players"><span class="tab-icon">&#128100;</span>プレイヤー</button><button type="button" class="tab-btn" data-tab="jump" id="tab-btn-jump"><span class="tab-icon">&#127919;</span>ジャンプ</button></div>
-<div class="tab-content active" id="tab-live"><div class="field-row"><button type="button" class="action-btn" id="btn-live-toggle">ライブ表示: OFF</button><div class="info-chip" id="live-status">未接続</div></div><div class="field-row"><div class="info-chip" id="live-count">プレイヤー: 0人</div></div></div>
-<div class="tab-content" id="tab-jump"><div class="field-row"><div class="field-group"><div class="field-label">MC X</div><input type="number" id="input-jx" placeholder="7152"></div><div class="field-group"><div class="field-label">MC Z</div><input type="number" id="input-jz" placeholder="-1820"></div><button type="button" class="action-btn jump" id="btn-jump">ジャンプ</button></div></div>
-<div id="panel-detail"><div id="live-player-list"></div><div id="outside-section" style="display:none"><div class="section-divider"></div><div class="section-title-row"><span style="font-size:14px">&#127757;</span><span class="section-title-text">マップ外に出た記録</span><span class="info-chip" id="outside-count">0人</span></div><div id="outside-player-list"></div></div></div></div></div>
+<div id="stage">
+  <div id="map-area">
+    <img id="map-img" src="map-image.jpg" alt="map">
+    <canvas id="chunk-canvas"></canvas>
+    <div id="tap-mark"></div>
+    <div id="jump-mark"></div>
+    <div id="tooltip"></div>
+    <div id="country-popup">
+      <div class="country-name" id="popup-name"></div>
+      <div class="chunk-count" id="popup-count"></div>
+      <button type="button" class="popup-close" id="popup-close-btn">✕ 閉じる</button>
+    </div>
+    <div id="zoom-controls">
+      <button type="button" class="zoom-btn" id="zoom-in">+</button>
+      <button type="button" class="zoom-btn" id="zoom-out">&minus;</button>
+    </div>
+  </div>
+  <div id="panel">
+    <div id="panel-handle">
+      <div class="handle-bar"></div>
+      <div class="handle-label" id="handle-label">上にスワイプで一覧表示</div>
+    </div>
+    <div class="tabs">
+      <button type="button" class="tab-btn active" data-tab="live" id="tab-btn-players"><span class="tab-icon">&#128100;</span>プレイヤー</button>
+      <button type="button" class="tab-btn" data-tab="countries" id="tab-btn-countries"><span class="tab-icon">&#127757;</span>国一覧</button>
+      <button type="button" class="tab-btn" data-tab="jump" id="tab-btn-jump"><span class="tab-icon">&#127919;</span>ジャンプ</button>
+    </div>
+    <div class="tab-content active" id="tab-live">
+      <div class="field-row">
+        <button type="button" class="action-btn" id="btn-live-toggle">ライブ表示: OFF</button>
+        <div class="info-chip" id="live-status">未接続</div>
+      </div>
+      <div class="field-row">
+        <div class="info-chip" id="live-count">プレイヤー: 0人</div>
+      </div>
+    </div>
+    <div class="tab-content" id="tab-countries">
+      <div class="info-chip" id="countries-count">読み込み中...</div>
+    </div>
+    <div class="tab-content" id="tab-jump">
+      <div class="field-row">
+        <div class="field-group"><div class="field-label">MC X</div><input type="number" id="input-jx" placeholder="7152"></div>
+        <div class="field-group"><div class="field-label">MC Z</div><input type="number" id="input-jz" placeholder="-1820"></div>
+        <button type="button" class="action-btn jump" id="btn-jump">ジャンプ</button>
+      </div>
+    </div>
+    <div id="panel-detail">
+      <div id="live-player-list"></div>
+      <div id="country-list-wrap" style="display:none"></div>
+    </div>
+  </div>
+</div>
 <script>
 'use strict';
 const WORKER_API='https://map.hp7vvyvc25.workers.dev';
 const MAP_BOUNDS={x1:-9215,z1:-4607,x2:9215,z2:4607};
-const IMG_W=1539,IMG_H=769,CONV={cx:51.26,ox:-4,cz:51.22,oz:1};
-const CHUNK_SIZE=16;
+const IMG_W=1539,IMG_H=769,CHUNK_SIZE=16;
 
-// ===== 色管理 =====
 const countryColors={};
-function getCountryColor(countryName){if(!countryColors[countryName]){const h=hueFromString(countryName);const s=60;const l=45;countryColors[countryName]=`hsl(${h},${s}%,${l}%)`}return countryColors[countryName]}
+function getCountryColor(countryName){if(!countryColors[countryName]){const h=hueFromString(countryName);countryColors[countryName]=`hsl(${h},60%,45%)`}return countryColors[countryName]}
 function hueFromString(s){let h=0;for(let i=0;i<s.length;i++)h=(h+s.charCodeAt(i)*7)%360;return h}
 
-function mcToGeo(x,z){return{lat:(-(z-CONV.oz)/CONV.cz).toFixed(4),lng:((x-CONV.ox)/CONV.cx).toFixed(4)}}
-const view={x:0,y:0,scale:1};const mapArea=document.getElementById('map-area'),mapImg=document.getElementById('map-img'),chunkCanvas=document.getElementById('chunk-canvas'),tapMark=document.getElementById('tap-mark'),jumpMark=document.getElementById('jump-mark'),tooltip=document.getElementById('tooltip'),countryInfoBox=document.getElementById('country-info'),hdrInfo=document.getElementById('hdr-info'),errorBanner=document.getElementById('error-banner');
-let errorTimer=null;function showError(msg){errorBanner.textContent=msg;errorBanner.classList.add('show');if(errorTimer)clearTimeout(errorTimer);errorTimer=setTimeout(()=>errorBanner.classList.remove('show'),5000)}
-function fitView(){const r=mapArea.getBoundingClientRect(),ph=document.getElementById('panel').getBoundingClientRect().height||0;if(r.width<=0||r.height<=0)return;const ah=Math.max(r.height-ph,100);view.scale=Math.min(r.width/IMG_W,ah/IMG_H);view.x=(r.width-IMG_W*view.scale)/2;view.y=(ah-IMG_H*view.scale)/2;applyView()}
-function applyView(){mapImg.style.width=IMG_W*view.scale+'px';mapImg.style.height=IMG_H*view.scale+'px';mapImg.style.left=view.x+'px';mapImg.style.top=view.y+'px';const r=mapArea.getBoundingClientRect();chunkCanvas.width=r.width;chunkCanvas.height=r.height;updateAllMarkers();drawChunks()}
-function clampView(){const r=mapArea.getBoundingClientRect(),ph=document.getElementById('panel').getBoundingClientRect().height||0,ah=Math.max(r.height-ph,100),cw=IMG_W*view.scale,ch=IMG_H*view.scale;if(cw<=r.width)view.x=(r.width-cw)/2;else view.x=Math.min(0,Math.max(r.width-cw,view.x));if(ch<=ah)view.y=(ah-ch)/2;else view.y=Math.min(0,Math.max(ah-ch,view.y))}
+const view={x:0,y:0,scale:1};
+const mapArea=document.getElementById('map-area'),mapImg=document.getElementById('map-img'),chunkCanvas=document.getElementById('chunk-canvas'),tapMark=document.getElementById('tap-mark'),jumpMark=document.getElementById('jump-mark'),tooltip=document.getElementById('tooltip'),countryPopup=document.getElementById('country-popup'),popupName=document.getElementById('popup-name'),popupCount=document.getElementById('popup-count'),hdrInfo=document.getElementById('hdr-info'),errorBanner=document.getElementById('error-banner');
+
+let errorTimer=null;
+function showError(msg){errorBanner.textContent=msg;errorBanner.classList.add('show');if(errorTimer)clearTimeout(errorTimer);errorTimer=setTimeout(()=>errorBanner.classList.remove('show'),5000)}
+
+// パネル高さ取得（transitionなしで即時）
+function getPanelHeight(){return document.getElementById('panel').getBoundingClientRect().height||0}
+
+function fitView(){
+  const r=mapArea.getBoundingClientRect();
+  const ph=getPanelHeight();
+  if(r.width<=0||r.height<=0)return;
+  const ah=Math.max(r.height-ph,100);
+  view.scale=Math.min(r.width/IMG_W,ah/IMG_H);
+  view.x=(r.width-IMG_W*view.scale)/2;
+  view.y=(ah-IMG_H*view.scale)/2;
+  applyView();
+}
+
+function applyView(){
+  mapImg.style.width=IMG_W*view.scale+'px';
+  mapImg.style.height=IMG_H*view.scale+'px';
+  mapImg.style.left=view.x+'px';
+  mapImg.style.top=view.y+'px';
+  const r=mapArea.getBoundingClientRect();
+  chunkCanvas.width=r.width;
+  chunkCanvas.height=r.height;
+  updateAllMarkers();
+  drawChunks();
+}
+
+function clampView(){
+  const r=mapArea.getBoundingClientRect(),ph=getPanelHeight(),ah=Math.max(r.height-ph,100),cw=IMG_W*view.scale,ch=IMG_H*view.scale;
+  if(cw<=r.width)view.x=(r.width-cw)/2;else view.x=Math.min(0,Math.max(r.width-cw,view.x));
+  if(ch<=ah)view.y=(ah-ch)/2;else view.y=Math.min(0,Math.max(ah-ch,view.y));
+}
+
 function mcToPixel(x,z){return{x:view.x+(x-MAP_BOUNDS.x1)/(MAP_BOUNDS.x2-MAP_BOUNDS.x1)*IMG_W*view.scale,y:view.y+(z-MAP_BOUNDS.z1)/(MAP_BOUNDS.z2-MAP_BOUNDS.z1)*IMG_H*view.scale}}
 function pixelToMc(px,py){return{x:Math.round(MAP_BOUNDS.x1+(px-view.x)/(IMG_W*view.scale)*(MAP_BOUNDS.x2-MAP_BOUNDS.x1)),z:Math.round(MAP_BOUNDS.z1+(py-view.y)/(IMG_H*view.scale)*(MAP_BOUNDS.z2-MAP_BOUNDS.z1))}}
 function isInsideMapBounds(x,z){return x>=MAP_BOUNDS.x1&&x<=MAP_BOUNDS.x2&&z>=MAP_BOUNDS.z1&&z<=MAP_BOUNDS.z2}
 
-// ===== チャンク領土描画 =====
+// ===== チャンク描画 =====
 let allChunkData={};
-async function fetchChunkData(){try{const data=await fetch(WORKER_API+'/api/chunks').then(r=>r.json());allChunkData=data||{}}catch(e){console.warn('チャンクデータ取得失敗:',e)}}
-function drawChunks(){const ctx=chunkCanvas.getContext('2d');ctx.clearRect(0,0,chunkCanvas.width,chunkCanvas.height);for(const countryName in allChunkData){const countryData=allChunkData[countryName];if(!countryData.chunks)continue;const color=getCountryColor(countryName);const chunks=countryData.chunks;for(const chunk of chunks){const sx=chunk.cx*CHUNK_SIZE;const sz=chunk.cz*CHUNK_SIZE;const ex=sx+CHUNK_SIZE;const ez=sz+CHUNK_SIZE;const p1=mcToPixel(sx,sz);const p2=mcToPixel(ex,ez);const width=Math.abs(p2.x-p1.x);const height=Math.abs(p2.y-p1.y);const px=Math.min(p1.x,p2.x);const py=Math.min(p1.y,p2.y);ctx.fillStyle=color;ctx.globalAlpha=0.5;ctx.fillRect(px,py,width,height);ctx.strokeStyle=color;ctx.globalAlpha=0.8;ctx.lineWidth=2;ctx.strokeRect(px,py,width,height)}}}
-function pixelToChunk(px,py){const mc=pixelToMc(px,py);return{cx:Math.floor(mc.x/CHUNK_SIZE),cz:Math.floor(mc.z/CHUNK_SIZE)}}
-function getCountryAtPixel(px,py){const chunk=pixelToChunk(px,py);for(const countryName in allChunkData){const countryData=allChunkData[countryName];if(!countryData.chunks)continue;const found=countryData.chunks.find(c=>c.cx===chunk.cx&&c.cz===chunk.cz);if(found)return{country:countryName,count:countryData.chunkCount}}}
-function showCountryInfo(px,py){const info=getCountryAtPixel(px,py);if(!info){countryInfoBox.style.display='none';return}countryInfoBox.innerHTML=`<div class="country-name">${info.country}</div><div class="chunk-count">チャンク数: ${info.count}</div>`;countryInfoBox.style.display='block';let x=px+12,y=py-40;if(x+140>chunkCanvas.width)x=px-160;if(y<0)y=py+20;countryInfoBox.style.left=x+'px';countryInfoBox.style.top=y+'px'}
+async function fetchChunkData(){try{const data=await fetch(WORKER_API+'/api/chunks').then(r=>r.json());allChunkData=data||{};renderCountryList()}catch(e){console.warn('チャンクデータ取得失敗:',e)}}
 
-let currentJumpMc=null;function updateAllMarkers(){if(currentJumpMc&&jumpMark.style.display!=='none'){const p=mcToPixel(currentJumpMc.x,currentJumpMc.z);jumpMark.style.left=p.x+'px';jumpMark.style.top=p.y+'px'}updateLiveMarkerPositions()}
-let tooltipTimer=null;function onMapTap(cx,cy){const r=mapArea.getBoundingClientRect(),lx=cx-r.left,ly=cy-r.top;if(lx<view.x||lx>view.x+IMG_W*view.scale||ly<view.y||ly>view.y+IMG_H*view.scale)return;tapMark.style.display='block';tapMark.style.left=lx+'px';tapMark.style.top=ly+'px';const mc=pixelToMc(lx,ly),geo=mcToGeo(mc.x,mc.z);hdrInfo.textContent='X:'+mc.x+' Z:'+mc.z+' | '+geo.lat+'°N '+geo.lng+'°E';tooltip.textContent='X:'+mc.x+' Z:'+mc.z;tooltip.style.display='block';let tx=lx+12,ty=ly-30;if(tx+150>r.width)tx=lx-160;if(ty<0)ty=ly+14;tooltip.style.left=tx+'px';tooltip.style.top=ty+'px';if(tooltipTimer)clearTimeout(tooltipTimer);tooltipTimer=setTimeout(()=>tooltip.style.display='none',2500);showCountryInfo(lx,ly);setTimeout(()=>{countryInfoBox.style.display='none'},3000)}
-function doJumpTo(){const x=parseFloat(document.getElementById('input-jx').value),z=parseFloat(document.getElementById('input-jz').value);if(isNaN(x)||isNaN(z)){showError('X座標とZ座標を数字で入力してください。');return}currentJumpMc={x,z};zoomToMcCoord(x,z,4);const geo=mcToGeo(x,z);hdrInfo.textContent='X:'+x+' Z:'+z+' | '+geo.lat+'°N '+geo.lng+'°E';jumpMark.style.display='block';const p=mcToPixel(x,z);jumpMark.style.left=p.x+'px';jumpMark.style.top=p.y+'px'}
-function zoomToMcCoord(x,z,target){const r=mapArea.getBoundingClientRect(),ph=document.getElementById('panel').getBoundingClientRect().height||0,ah=Math.max(r.height-ph,100),min=Math.min(r.width/IMG_W,ah/IMG_H),ns=Math.min(Math.max(target,min),15),rx=(x-MAP_BOUNDS.x1)/(MAP_BOUNDS.x2-MAP_BOUNDS.x1),rz=(z-MAP_BOUNDS.z1)/(MAP_BOUNDS.z2-MAP_BOUNDS.z1);view.x=r.width/2-rx*IMG_W*ns;view.y=ah/2-rz*IMG_H*ns;view.scale=ns;clampView();applyView();setDetailExpanded(false)}
-const panelDetail=document.getElementById('panel-detail'),handleLabel=document.getElementById('handle-label'),panelHandle=document.getElementById('panel-handle');let detailExpanded=false;function detailMaxPx(){return Math.max(100,Math.round(document.getElementById('stage').getBoundingClientRect().height*.58))}function setDetailExpanded(exp){detailExpanded=exp;if(exp){panelDetail.style.maxHeight=detailMaxPx()+'px';panelDetail.classList.add('expanded');handleLabel.textContent='下にスワイプで閉じる'}else{panelDetail.style.maxHeight='0px';panelDetail.classList.remove('expanded');handleLabel.textContent='上にスワイプで一覧表示'}setTimeout(fitView,350)}
-let hDragging=false,hMoved=false,hStartY=0,hStartH=0,hMaxPx=0;function hDragStart(y){if(!document.getElementById('tab-live').classList.contains('active'))return;hDragging=true;hMoved=false;hStartY=y;hStartH=panelDetail.getBoundingClientRect().height;hMaxPx=detailMaxPx();panelDetail.style.transition='none';panelDetail.classList.add('expanded')}function hDragMove(y){if(!hDragging)return;const dy=hStartY-y;if(Math.abs(dy)>6)hMoved=true;panelDetail.style.maxHeight=Math.min(Math.max(hStartH+dy,0),hMaxPx)+'px';fitView()}function hDragEnd(){if(!hDragging)return;hDragging=false;panelDetail.style.transition='';if(!hMoved){setDetailExpanded(!detailExpanded);return}setDetailExpanded(panelDetail.getBoundingClientRect().height>hMaxPx*.3)}panelHandle.addEventListener('touchstart',e=>hDragStart(e.touches[0].clientY),{passive:true});panelHandle.addEventListener('touchmove',e=>{if(!hDragging)return;e.preventDefault();hDragMove(e.touches[0].clientY)},{passive:false});panelHandle.addEventListener('touchend',hDragEnd);panelHandle.addEventListener('touchcancel',hDragEnd);panelHandle.addEventListener('mousedown',e=>{hDragStart(e.clientY);const mm=e2=>hDragMove(e2.clientY),mu=()=>{hDragEnd();window.removeEventListener('mousemove',mm);window.removeEventListener('mouseup',mu)};window.addEventListener('mousemove',mm);window.addEventListener('mouseup',mu)});
-function switchTab(name){document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));document.getElementById('tab-'+name).classList.add('active');setDetailExpanded(false);if(name==='jump'){panelDetail.style.display='none';panelHandle.style.opacity='.4';handleLabel.textContent=''}else{panelDetail.style.display='';panelHandle.style.opacity='1'}}document.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
-let pointers={},panActive=false,panLastX=0,panLastY=0,pinchActive=false,pinchDist=0,pinchMidX=0,pinchMidY=0,isTap=false,tapStartX=0,tapStartY=0,tapStartTime=0;function onTouchStart(e){if(e.target.closest('#zoom-controls')||e.target.closest('#panel'))return;e.preventDefault();for(const t of e.changedTouches)pointers[t.identifier]={x:t.clientX,y:t.clientY};const k=Object.keys(pointers);if(k.length===1){const p=pointers[k[0]];panActive=true;pinchActive=false;panLastX=p.x;panLastY=p.y;isTap=true;tapStartX=p.x;tapStartY=p.y;tapStartTime=Date.now()}else if(k.length===2){panActive=false;pinchActive=true;isTap=false;const a=pointers[k[0]],b=pointers[k[1]];pinchDist=Math.hypot(b.x-a.x,b.y-a.y);pinchMidX=(a.x+b.x)/2;pinchMidY=(a.y+b.y)/2}}function onTouchMove(e){if(e.target.closest('#panel'))return;e.preventDefault();for(const t of e.changedTouches)pointers[t.identifier]={x:t.clientX,y:t.clientY};const k=Object.keys(pointers);if(k.length===1&&panActive){const p=pointers[k[0]],dx=p.x-panLastX,dy=p.y-panLastY;if(Math.abs(dx)>3||Math.abs(dy)>3)isTap=false;view.x+=dx;view.y+=dy;panLastX=p.x;panLastY=p.y;clampView();applyView()}else if(k.length===2&&pinchActive){const a=pointers[k[0]],b=pointers[k[1]],dist=Math.hypot(b.x-a.x,b.y-a.y),mx=(a.x+b.x)/2,my=(a.y+b.y)/2,r=mapArea.getBoundingClientRect(),ph=document.getElementById('panel').getBoundingClientRect().height||0,ah=Math.max(r.height-ph,100),min=Math.min(r.width/IMG_W,ah/IMG_H),ns=Math.min(Math.max(view.scale*dist/pinchDist,min),15),ox=pinchMidX-r.left,oy=pinchMidY-r.top;view.x=ox-(ox-view.x)*(ns/view.scale);view.y=oy-(oy-view.y)*(ns/view.scale);view.scale=ns;view.x+=mx-pinchMidX;view.y+=my-pinchMidY;pinchDist=dist;pinchMidX=mx;pinchMidY=my;clampView();applyView()}}function onTouchEnd(e){for(const t of e.changedTouches)delete pointers[t.identifier];const rem=Object.keys(pointers).length;if(rem===0){if(isTap&&Date.now()-tapStartTime<300)onMapTap(tapStartX,tapStartY);panActive=false;pinchActive=false;isTap=false}else if(rem===1){pinchActive=false;panActive=true;isTap=false;const p=pointers[Object.keys(pointers)[0]];panLastX=p.x;panLastY=p.y}}function onTouchCancel(e){for(const t of e.changedTouches)delete pointers[t.identifier];panActive=false;pinchActive=false;isTap=false}chunkCanvas.addEventListener('touchstart',onTouchStart,{passive:false});chunkCanvas.addEventListener('touchmove',onTouchMove,{passive:false});chunkCanvas.addEventListener('touchend',onTouchEnd,{passive:false});chunkCanvas.addEventListener('touchcancel',onTouchCancel,{passive:false});
-let mouseDragging=false,mouseLastX=0,mouseLastY=0,mouseMoved=false;chunkCanvas.addEventListener('click',e=>{if(e.target.closest('#zoom-controls')||e.target.closest('#panel'))return;if(mouseMoved){mouseMoved=false;return}onMapTap(e.clientX-mapArea.getBoundingClientRect().left,e.clientY-mapArea.getBoundingClientRect().top)});chunkCanvas.addEventListener('mousedown',e=>{if(e.target.closest('#zoom-controls')||e.target.closest('#panel'))return;mouseDragging=true;mouseMoved=false;mouseLastX=e.clientX;mouseLastY=e.clientY});window.addEventListener('mousemove',e=>{if(!mouseDragging)return;const dx=e.clientX-mouseLastX,dy=e.clientY-mouseLastY;if(Math.abs(dx)>3||Math.abs(dy)>3)mouseMoved=true;view.x+=dx;view.y+=dy;mouseLastX=e.clientX;mouseLastY=e.clientY;clampView();applyView()});window.addEventListener('mouseup',()=>mouseDragging=false);chunkCanvas.addEventListener('wheel',e=>{e.preventDefault();zoomAt(e.clientX,e.clientY,e.deltaY<0?1.15:1/1.15)},{passive:false});function zoomAt(cx,cy,f){const r=mapArea.getBoundingClientRect(),ph=document.getElementById('panel').getBoundingClientRect().height||0,ah=Math.max(r.height-ph,100),min=Math.min(r.width/IMG_W,ah/IMG_H),ns=Math.min(Math.max(view.scale*f,min),15),ox=cx-r.left,oy=cy-r.top;view.x=ox-(ox-view.x)*(ns/view.scale);view.y=oy-(oy-view.y)*(ns/view.scale);view.scale=ns;clampView();applyView()}function zoomBy(f){const r=mapArea.getBoundingClientRect(),ph=document.getElementById('panel').getBoundingClientRect().height||0,ah=Math.max(r.height-ph,100);zoomAt(r.left+r.width/2,r.top+ah/2,f)}function bindZoomBtn(el,f){let fired=false;const trigger=e=>{e.preventDefault();e.stopPropagation();if(fired)return;fired=true;zoomBy(f);setTimeout(()=>fired=false,150)};el.addEventListener('touchstart',trigger,{passive:false});el.addEventListener('mousedown',trigger);el.addEventListener('click',e=>{e.preventDefault();e.stopPropagation()})}bindZoomBtn(document.getElementById('zoom-in'),1.4);bindZoomBtn(document.getElementById('zoom-out'),1/1.4);document.getElementById('btn-jump').addEventListener('click',doJumpTo);
+function drawChunks(){
+  const ctx=chunkCanvas.getContext('2d');
+  ctx.clearRect(0,0,chunkCanvas.width,chunkCanvas.height);
+  for(const countryName in allChunkData){
+    const countryData=allChunkData[countryName];
+    if(!countryData.chunks)continue;
+    const color=getCountryColor(countryName);
+    for(const chunk of countryData.chunks){
+      const sx=chunk.cx*CHUNK_SIZE,sz=chunk.cz*CHUNK_SIZE,ex=sx+CHUNK_SIZE,ez=sz+CHUNK_SIZE;
+      const p1=mcToPixel(sx,sz),p2=mcToPixel(ex,ez);
+      const width=Math.abs(p2.x-p1.x),height=Math.abs(p2.y-p1.y);
+      const px=Math.min(p1.x,p2.x),py=Math.min(p1.y,p2.y);
+      ctx.fillStyle=color;ctx.globalAlpha=0.5;ctx.fillRect(px,py,width,height);
+      ctx.strokeStyle=color;ctx.globalAlpha=0.8;ctx.lineWidth=2;ctx.strokeRect(px,py,width,height);
+    }
+  }
+}
+
+function pixelToChunk(px,py){const mc=pixelToMc(px,py);return{cx:Math.floor(mc.x/CHUNK_SIZE),cz:Math.floor(mc.z/CHUNK_SIZE)}}
+function getCountryAtPixel(px,py){
+  const chunk=pixelToChunk(px,py);
+  for(const countryName in allChunkData){
+    const countryData=allChunkData[countryName];
+    if(!countryData.chunks)continue;
+    const found=countryData.chunks.find(c=>c.cx===chunk.cx&&c.cz===chunk.cz);
+    if(found)return{country:countryName,count:countryData.chunkCount};
+  }
+}
+
+// 国ポップアップ（固定表示・×ボタン）
+function showCountryPopup(px,py){
+  const info=getCountryAtPixel(px,py);
+  if(!info){return}
+  popupName.textContent=info.country;
+  popupCount.textContent='チャンク数: '+info.count;
+  countryPopup.style.display='block';
+  positionPopup(px,py);
+}
+
+function positionPopup(px,py){
+  const cw=chunkCanvas.width,ch=chunkCanvas.height;
+  countryPopup.style.left='auto';countryPopup.style.right='auto';
+  countryPopup.style.top='auto';countryPopup.style.bottom='auto';
+  let x=px+12,y=py-70;
+  const pw=160;
+  if(x+pw>cw)x=px-pw-12;
+  if(x<4)x=4;
+  if(y<4)y=py+20;
+  countryPopup.style.left=x+'px';
+  countryPopup.style.top=y+'px';
+}
+
+document.getElementById('popup-close-btn').addEventListener('click',e=>{e.stopPropagation();countryPopup.style.display='none'});
+
+let currentJumpMc=null;
+function updateAllMarkers(){
+  if(currentJumpMc&&jumpMark.style.display!=='none'){const p=mcToPixel(currentJumpMc.x,currentJumpMc.z);jumpMark.style.left=p.x+'px';jumpMark.style.top=p.y+'px'}
+  updateLiveMarkerPositions();
+}
+
+let tooltipTimer=null;
+function onMapTap(cx,cy){
+  const r=mapArea.getBoundingClientRect(),lx=cx-r.left,ly=cy-r.top;
+  if(lx<view.x||lx>view.x+IMG_W*view.scale||ly<view.y||ly>view.y+IMG_H*view.scale)return;
+  tapMark.style.display='block';tapMark.style.left=lx+'px';tapMark.style.top=ly+'px';
+  const mc=pixelToMc(lx,ly);
+  hdrInfo.textContent='X:'+mc.x+' Z:'+mc.z;
+  tooltip.textContent='X:'+mc.x+' Z:'+mc.z;
+  tooltip.style.display='block';
+  let tx=lx+12,ty=ly-30;
+  const rr=mapArea.getBoundingClientRect();
+  if(tx+150>rr.width)tx=lx-160;
+  if(ty<0)ty=ly+14;
+  tooltip.style.left=tx+'px';tooltip.style.top=ty+'px';
+  if(tooltipTimer)clearTimeout(tooltipTimer);
+  tooltipTimer=setTimeout(()=>tooltip.style.display='none',2500);
+  showCountryPopup(lx,ly);
+}
+
+function doJumpTo(){
+  const x=parseFloat(document.getElementById('input-jx').value),z=parseFloat(document.getElementById('input-jz').value);
+  if(isNaN(x)||isNaN(z)){showError('X座標とZ座標を数字で入力してください。');return}
+  currentJumpMc={x,z};
+  zoomToMcCoord(x,z,4);
+  hdrInfo.textContent='X:'+x+' Z:'+z;
+  jumpMark.style.display='block';
+  const p=mcToPixel(x,z);
+  jumpMark.style.left=p.x+'px';jumpMark.style.top=p.y+'px';
+}
+
+function zoomToMcCoord(x,z,target){
+  const r=mapArea.getBoundingClientRect(),ph=getPanelHeight(),ah=Math.max(r.height-ph,100),min=Math.min(r.width/IMG_W,ah/IMG_H),ns=Math.min(Math.max(target,min),15),rx=(x-MAP_BOUNDS.x1)/(MAP_BOUNDS.x2-MAP_BOUNDS.x1),rz=(z-MAP_BOUNDS.z1)/(MAP_BOUNDS.z2-MAP_BOUNDS.z1);
+  view.x=r.width/2-rx*IMG_W*ns;
+  view.y=ah/2-rz*IMG_H*ns;
+  view.scale=ns;
+  clampView();
+  applyView();
+  // パネルを閉じる際に即座にfitViewしない（ズーム後の位置を維持）
+  setDetailExpanded(false,true);
+}
+
+// ===== パネル =====
+const panelDetail=document.getElementById('panel-detail'),handleLabel=document.getElementById('handle-label'),panelHandle=document.getElementById('panel-handle');
+let detailExpanded=false;
+
+function detailMaxPx(){return Math.max(100,Math.round(document.getElementById('stage').getBoundingClientRect().height*.58))}
+
+// skipFitView=trueのときはfitView（縮小）を行わない
+function setDetailExpanded(exp,skipFitView){
+  detailExpanded=exp;
+  if(exp){
+    panelDetail.style.maxHeight=detailMaxPx()+'px';
+    panelDetail.classList.add('expanded');
+    handleLabel.textContent='下にスワイプで閉じる';
+  }else{
+    panelDetail.style.maxHeight='0px';
+    panelDetail.classList.remove('expanded');
+    handleLabel.textContent='上にスワイプで一覧表示';
+  }
+  if(!skipFitView){
+    // transitionと同期してfitView（遅延なし、requestAnimationFrameで即反映）
+    requestAnimationFrame(()=>{
+      fitView();
+    });
+    setTimeout(fitView,340);
+  }
+}
+
+let hDragging=false,hMoved=false,hStartY=0,hStartH=0,hMaxPx=0;
+function hDragStart(y){
+  const activeTab=document.querySelector('.tab-content.active');
+  if(!activeTab||activeTab.id==='tab-jump')return;
+  hDragging=true;hMoved=false;hStartY=y;hStartH=panelDetail.getBoundingClientRect().height;hMaxPx=detailMaxPx();
+  panelDetail.style.transition='none';panelDetail.classList.add('expanded');
+}
+function hDragMove(y){
+  if(!hDragging)return;
+  const dy=hStartY-y;
+  if(Math.abs(dy)>6)hMoved=true;
+  panelDetail.style.maxHeight=Math.min(Math.max(hStartH+dy,0),hMaxPx)+'px';
+  requestAnimationFrame(fitView);
+}
+function hDragEnd(){
+  if(!hDragging)return;
+  hDragging=false;panelDetail.style.transition='';
+  if(!hMoved){setDetailExpanded(!detailExpanded);return}
+  setDetailExpanded(panelDetail.getBoundingClientRect().height>hMaxPx*.3);
+}
+panelHandle.addEventListener('touchstart',e=>hDragStart(e.touches[0].clientY),{passive:true});
+panelHandle.addEventListener('touchmove',e=>{if(!hDragging)return;e.preventDefault();hDragMove(e.touches[0].clientY)},{passive:false});
+panelHandle.addEventListener('touchend',hDragEnd);
+panelHandle.addEventListener('touchcancel',hDragEnd);
+panelHandle.addEventListener('mousedown',e=>{hDragStart(e.clientY);const mm=e2=>hDragMove(e2.clientY),mu=()=>{hDragEnd();window.removeEventListener('mousemove',mm);window.removeEventListener('mouseup',mu)};window.addEventListener('mousemove',mm);window.addEventListener('mouseup',mu)});
+
+function switchTab(name){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  // パネル詳細の表示切り替え
+  document.getElementById('live-player-list').style.display=(name==='live')?'flex':'none';
+  document.getElementById('country-list-wrap').style.display=(name==='countries')?'flex':'none';
+  if(name==='jump'){
+    panelDetail.style.display='none';
+    panelHandle.style.opacity='.4';
+    handleLabel.textContent='';
+    setDetailExpanded(false);
+  }else{
+    panelDetail.style.display='';
+    panelHandle.style.opacity='1';
+    // タブ切り替え直後に即時fitView（遅延なし）
+    requestAnimationFrame(fitView);
+  }
+}
+
+document.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
+
+// ===== 国一覧 =====
+function renderCountryList(){
+  const wrap=document.getElementById('country-list-wrap');
+  const countEl=document.getElementById('countries-count');
+  wrap.innerHTML='';
+  const names=Object.keys(allChunkData).sort((a,b)=>(allChunkData[b].chunkCount||0)-(allChunkData[a].chunkCount||0));
+  countEl.textContent='国: '+names.length+'か国';
+  if(!names.length){const e=document.createElement('div');e.className='country-list-empty';e.textContent='データなし';wrap.appendChild(e);return}
+  names.forEach(name=>{
+    const data=allChunkData[name];
+    const item=document.createElement('div');
+    item.className='country-list-item';
+    const colorBlock=document.createElement('div');
+    colorBlock.className='country-color-block';
+    colorBlock.style.background=getCountryColor(name);
+    const nameEl=document.createElement('div');nameEl.className='country-item-name';nameEl.textContent=name;
+    const countElI=document.createElement('div');countElI.className='country-item-count';countElI.textContent=(data.chunkCount||0)+'チャンク';
+    item.append(colorBlock,nameEl,countElI);
+    item.addEventListener('click',()=>{
+      // その国の最初のチャンクへズーム
+      if(data.chunks&&data.chunks.length>0){
+        const c=data.chunks[0];
+        const cx=c.cx*CHUNK_SIZE+CHUNK_SIZE/2;
+        const cz=c.cz*CHUNK_SIZE+CHUNK_SIZE/2;
+        zoomToMcCoord(cx,cz,5);
+      }
+    });
+    wrap.appendChild(item);
+  });
+}
+
+// ===== タッチ/マウス =====
+let pointers={},panActive=false,panLastX=0,panLastY=0,pinchActive=false,pinchDist=0,pinchMidX=0,pinchMidY=0,isTap=false,tapStartX=0,tapStartY=0,tapStartTime=0;
+function onTouchStart(e){if(e.target.closest('#zoom-controls')||e.target.closest('#panel'))return;e.preventDefault();for(const t of e.changedTouches)pointers[t.identifier]={x:t.clientX,y:t.clientY};const k=Object.keys(pointers);if(k.length===1){const p=pointers[k[0]];panActive=true;pinchActive=false;panLastX=p.x;panLastY=p.y;isTap=true;tapStartX=p.x;tapStartY=p.y;tapStartTime=Date.now()}else if(k.length===2){panActive=false;pinchActive=true;isTap=false;const a=pointers[k[0]],b=pointers[k[1]];pinchDist=Math.hypot(b.x-a.x,b.y-a.y);pinchMidX=(a.x+b.x)/2;pinchMidY=(a.y+b.y)/2}}
+function onTouchMove(e){if(e.target.closest('#panel'))return;e.preventDefault();for(const t of e.changedTouches)pointers[t.identifier]={x:t.clientX,y:t.clientY};const k=Object.keys(pointers);if(k.length===1&&panActive){const p=pointers[k[0]],dx=p.x-panLastX,dy=p.y-panLastY;if(Math.abs(dx)>3||Math.abs(dy)>3)isTap=false;view.x+=dx;view.y+=dy;panLastX=p.x;panLastY=p.y;clampView();applyView()}else if(k.length===2&&pinchActive){const a=pointers[k[0]],b=pointers[k[1]],dist=Math.hypot(b.x-a.x,b.y-a.y),mx=(a.x+b.x)/2,my=(a.y+b.y)/2,r=mapArea.getBoundingClientRect(),ph=getPanelHeight(),ah=Math.max(r.height-ph,100),min=Math.min(r.width/IMG_W,ah/IMG_H),ns=Math.min(Math.max(view.scale*dist/pinchDist,min),15),ox=pinchMidX-r.left,oy=pinchMidY-r.top;view.x=ox-(ox-view.x)*(ns/view.scale);view.y=oy-(oy-view.y)*(ns/view.scale);view.scale=ns;view.x+=mx-pinchMidX;view.y+=my-pinchMidY;pinchDist=dist;pinchMidX=mx;pinchMidY=my;clampView();applyView()}}
+function onTouchEnd(e){for(const t of e.changedTouches)delete pointers[t.identifier];const rem=Object.keys(pointers).length;if(rem===0){if(isTap&&Date.now()-tapStartTime<300)onMapTap(tapStartX,tapStartY);panActive=false;pinchActive=false;isTap=false}else if(rem===1){pinchActive=false;panActive=true;isTap=false;const p=pointers[Object.keys(pointers)[0]];panLastX=p.x;panLastY=p.y}}
+function onTouchCancel(e){for(const t of e.changedTouches)delete pointers[t.identifier];panActive=false;pinchActive=false;isTap=false}
+chunkCanvas.addEventListener('touchstart',onTouchStart,{passive:false});chunkCanvas.addEventListener('touchmove',onTouchMove,{passive:false});chunkCanvas.addEventListener('touchend',onTouchEnd,{passive:false});chunkCanvas.addEventListener('touchcancel',onTouchCancel,{passive:false});
+
+let mouseDragging=false,mouseLastX=0,mouseLastY=0,mouseMoved=false;
+chunkCanvas.addEventListener('click',e=>{if(e.target.closest('#zoom-controls')||e.target.closest('#panel'))return;if(mouseMoved){mouseMoved=false;return}const r=mapArea.getBoundingClientRect();onMapTap(e.clientX-r.left+r.left,e.clientY-r.top+r.top)});
+chunkCanvas.addEventListener('mousedown',e=>{if(e.target.closest('#zoom-controls')||e.target.closest('#panel'))return;mouseDragging=true;mouseMoved=false;mouseLastX=e.clientX;mouseLastY=e.clientY});
+window.addEventListener('mousemove',e=>{if(!mouseDragging)return;const dx=e.clientX-mouseLastX,dy=e.clientY-mouseLastY;if(Math.abs(dx)>3||Math.abs(dy)>3)mouseMoved=true;view.x+=dx;view.y+=dy;mouseLastX=e.clientX;mouseLastY=e.clientY;clampView();applyView()});
+window.addEventListener('mouseup',()=>mouseDragging=false);
+chunkCanvas.addEventListener('wheel',e=>{e.preventDefault();zoomAt(e.clientX,e.clientY,e.deltaY<0?1.15:1/1.15)},{passive:false});
+
+function zoomAt(cx,cy,f){const r=mapArea.getBoundingClientRect(),ph=getPanelHeight(),ah=Math.max(r.height-ph,100),min=Math.min(r.width/IMG_W,ah/IMG_H),ns=Math.min(Math.max(view.scale*f,min),15),ox=cx-r.left,oy=cy-r.top;view.x=ox-(ox-view.x)*(ns/view.scale);view.y=oy-(oy-view.y)*(ns/view.scale);view.scale=ns;clampView();applyView()}
+function zoomBy(f){const r=mapArea.getBoundingClientRect(),ph=getPanelHeight(),ah=Math.max(r.height-ph,100);zoomAt(r.left+r.width/2,r.top+ah/2,f)}
+function bindZoomBtn(el,f){let fired=false;const trigger=e=>{e.preventDefault();e.stopPropagation();if(fired)return;fired=true;zoomBy(f);setTimeout(()=>fired=false,150)};el.addEventListener('touchstart',trigger,{passive:false});el.addEventListener('mousedown',trigger);el.addEventListener('click',e=>{e.preventDefault();e.stopPropagation()})}
+bindZoomBtn(document.getElementById('zoom-in'),1.4);
+bindZoomBtn(document.getElementById('zoom-out'),1/1.4);
+document.getElementById('btn-jump').addEventListener('click',doJumpTo);
+
+// ===== API =====
 async function api(path,options={}){const r=await fetch(WORKER_API+path,{...options,headers:{'Content-Type':'application/json',...(options.headers||{})}});const text=await r.text();let data=null;try{data=text?JSON.parse(text):null}catch{data=text}if(!r.ok)throw new Error(data&&data.error?data.error:`HTTP ${r.status}`);return data}
 
-let liveActive=false,liveMarkers={},liveTimer=null,outsideHistory={},outsideTimer=null;const liveToggleBtn=document.getElementById('btn-live-toggle'),liveStatusChip=document.getElementById('live-status'),liveCountChip=document.getElementById('live-count'),livePlayerListEl=document.getElementById('live-player-list'),outsideSectionEl=document.getElementById('outside-section'),outsidePlayerListEl=document.getElementById('outside-player-list'),outsideCountEl=document.getElementById('outside-count');
-function upsertLiveMarker(id,x,z){let e=liveMarkers[id];if(!e){const el=document.createElement('div');el.className='player-mark live-mark';const lb=document.createElement('div');lb.className='label';lb.textContent=id;const ic=document.createElement('div');ic.className='icon';ic.style.background=`hsl(${hueFromString(id)},55%,40%)`;ic.textContent=id.charAt(0).toUpperCase();const ai=new Image();ai.alt=id;ai.onload=()=>{ic.textContent='';ic.appendChild(ai)};ai.src='https://crafatar.com/avatars/'+encodeURIComponent(id)+'?size=32&overlay';el.append(lb,ic);mapArea.appendChild(el);e={el};liveMarkers[id]=e}e.x=x;e.z=z;const p=mcToPixel(x,z);e.el.style.left=p.x+'px';e.el.style.top=p.y+'px'}function removeLiveMarker(id){const e=liveMarkers[id];if(!e)return;e.el.remove();delete liveMarkers[id]}function clearAllLiveMarkers(){Object.keys(liveMarkers).forEach(removeLiveMarker)}function updateLiveMarkerPositions(){Object.values(liveMarkers).forEach(e=>{const p=mcToPixel(e.x,e.z);e.el.style.left=p.x+'px';e.el.style.top=p.y+'px'})}
-function buildPlayerListItem(id,p){const item=document.createElement('div');item.className='live-list-item';const av=document.createElement('div');av.className='avatar';av.style.background=`hsl(${hueFromString(id)},55%,40%)`;av.textContent=id.charAt(0).toUpperCase();const ai=new Image();ai.alt=id;ai.onload=()=>{av.textContent='';av.appendChild(ai)};ai.src='https://crafatar.com/avatars/'+encodeURIComponent(id)+'?size=28&overlay';const info=document.createElement('div');info.className='info';const ne=document.createElement('div');ne.className='mcid';ne.textContent=id;const co=document.createElement('div');co.className='coords';co.textContent=`X: ${Math.round(p.x)}  Z: ${Math.round(p.z)}`;info.append(ne,co);item.append(av,info);item.addEventListener('click',()=>zoomToMcCoord(p.x,p.z,6));return item}
-function renderLivePlayerList(data){livePlayerListEl.innerHTML='';const ids=Object.keys(data||{}).filter(id=>data[id]&&typeof data[id].x==='number'&&typeof data[id].z==='number'&&isInsideMapBounds(data[id].x,data[id].z)).sort();if(!ids.length){const e=document.createElement('div');e.className='live-list-empty';e.textContent='オンラインのプレイヤーがいません';livePlayerListEl.appendChild(e)}else ids.forEach(id=>livePlayerListEl.appendChild(buildPlayerListItem(id,data[id])))}
-function formatTime(d){return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0')}
-function renderOutsideHistory(){outsidePlayerListEl.innerHTML='';const ids=Object.keys(outsideHistory);if(!ids.length){outsideSectionEl.style.display='none';return}outsideSectionEl.style.display='block';outsideCountEl.textContent=ids.length+'人';ids.sort((a,b)=>outsideHistory[b].time-outsideHistory[a].time);ids.forEach(id=>{const r=outsideHistory[id],item=document.createElement('div');item.className='live-list-item outside-list-item';const av=document.createElement('div');av.className='avatar';av.style.background=`hsl(${hueFromString(id)},55%,40%)`;av.textContent=id.charAt(0).toUpperCase();const info=document.createElement('div');info.className='info';const ne=document.createElement('div');ne.className='mcid';ne.textContent=id;const co=document.createElement('div');co.className='coords';co.textContent=`X: ${Math.round(r.x)}  Z: ${Math.round(r.z)}  ${formatTime(r.time)} に検出`;info.append(ne,co);item.append(av,info);item.addEventListener('click',()=>zoomToMcCoord(Math.min(Math.max(r.x,MAP_BOUNDS.x1),MAP_BOUNDS.x2),Math.min(Math.max(r.z,MAP_BOUNDS.z1),MAP_BOUNDS.z2),2));outsidePlayerListEl.appendChild(item)})}
-async function refreshOutside(){try{const raw=await api('/api/outside_history');outsideHistory={};Object.keys(raw||{}).forEach(id=>{const r=raw[id];if(r&&typeof r.x==='number'&&typeof r.z==='number'&&r.time)outsideHistory[id]={x:r.x,z:r.z,time:new Date(r.time)}});renderOutsideHistory()}catch(e){showError('マップ外記録の取得に失敗: '+e.message)}}
-async function refreshLive(){try{const data=await api('/api/players');const seen={};Object.keys(data||{}).forEach(id=>{const p=data[id];if(!p||typeof p.x!=='number'||typeof p.z!=='number')return;seen[id]=true;if(isInsideMapBounds(p.x,p.z))upsertLiveMarker(id,p.x,p.z);else removeLiveMarker(id)});Object.keys(liveMarkers).forEach(id=>{if(!seen[id])removeLiveMarker(id)});renderLivePlayerList(data||{});liveStatusChip.textContent='接続中（Worker経由）';liveCountChip.textContent='プレイヤー: '+Object.keys(seen).length+'人'}catch(e){liveStatusChip.textContent='接続エラー';showError('プレイヤー情報の取得に失敗: '+e.message)}}
-function startLive(){if(liveTimer)clearInterval(liveTimer);liveStatusChip.textContent='接続中...';refreshLive();liveTimer=setInterval(refreshLive,2000)}function stopLive(){if(liveTimer)clearInterval(liveTimer);liveTimer=null;clearAllLiveMarkers();livePlayerListEl.innerHTML='';liveStatusChip.textContent='未接続';liveCountChip.textContent='プレイヤー: 0人'}liveToggleBtn.addEventListener('click',()=>{liveActive=!liveActive;if(liveActive){liveToggleBtn.textContent='ライブ表示: ON';liveToggleBtn.classList.add('danger');startLive()}else{liveToggleBtn.textContent='ライブ表示: OFF';liveToggleBtn.classList.remove('danger');stopLive()}});document.getElementById('tab-btn-players').addEventListener('click',()=>{if(!liveActive){liveActive=true;liveToggleBtn.textContent='ライブ表示: ON';liveToggleBtn.classList.add('danger');startLive()}});
-window.addEventListener('resize',fitView);window.addEventListener('load',()=>{fitView();setTimeout(fitView,50);setTimeout(fitView,200);refreshOutside();outsideTimer=setInterval(refreshOutside,5000);fetchChunkData();setInterval(fetchChunkData,10000)});if(mapImg.complete)fitView();else mapImg.addEventListener('load',fitView);
+// ===== ライブ =====
+let liveActive=false,liveMarkers={},liveTimer=null;
+const liveToggleBtn=document.getElementById('btn-live-toggle'),liveStatusChip=document.getElementById('live-status'),liveCountChip=document.getElementById('live-count'),livePlayerListEl=document.getElementById('live-player-list');
+
+function upsertLiveMarker(id,x,z){
+  let e=liveMarkers[id];
+  if(!e){
+    const el=document.createElement('div');el.className='player-mark live-mark';
+    const lb=document.createElement('div');lb.className='label';lb.textContent=id;
+    const ic=document.createElement('div');ic.className='icon';ic.style.background=`hsl(${hueFromString(id)},55%,40%)`;ic.textContent=id.charAt(0).toUpperCase();
+    const ai=new Image();ai.alt=id;ai.onload=()=>{ic.textContent='';ic.appendChild(ai)};ai.src='https://crafatar.com/avatars/'+encodeURIComponent(id)+'?size=32&overlay';
+    el.append(lb,ic);mapArea.appendChild(el);e={el};liveMarkers[id]=e;
+  }
+  e.x=x;e.z=z;const p=mcToPixel(x,z);e.el.style.left=p.x+'px';e.el.style.top=p.y+'px';
+}
+function removeLiveMarker(id){const e=liveMarkers[id];if(!e)return;e.el.remove();delete liveMarkers[id]}
+function clearAllLiveMarkers(){Object.keys(liveMarkers).forEach(removeLiveMarker)}
+function updateLiveMarkerPositions(){Object.values(liveMarkers).forEach(e=>{const p=mcToPixel(e.x,e.z);e.el.style.left=p.x+'px';e.el.style.top=p.y+'px'})}
+
+function buildPlayerListItem(id,p){
+  const item=document.createElement('div');item.className='live-list-item';
+  const av=document.createElement('div');av.className='avatar';av.style.background=`hsl(${hueFromString(id)},55%,40%)`;av.textContent=id.charAt(0).toUpperCase();
+  const ai=new Image();ai.alt=id;ai.onload=()=>{av.textContent='';av.appendChild(ai)};ai.src='https://crafatar.com/avatars/'+encodeURIComponent(id)+'?size=28&overlay';
+  const info=document.createElement('div');info.className='info';
+  const ne=document.createElement('div');ne.className='mcid';ne.textContent=id;
+  const co=document.createElement('div');co.className='coords';co.textContent=`X: ${Math.round(p.x)}  Z: ${Math.round(p.z)}`;
+  info.append(ne,co);item.append(av,info);
+  // クリックでズーム（パネルを閉じてもズームを維持）
+  item.addEventListener('click',()=>zoomToMcCoord(p.x,p.z,6));
+  return item;
+}
+
+function renderLivePlayerList(data){
+  livePlayerListEl.innerHTML='';
+  const ids=Object.keys(data||{}).filter(id=>data[id]&&typeof data[id].x==='number'&&typeof data[id].z==='number'&&isInsideMapBounds(data[id].x,data[id].z)).sort();
+  if(!ids.length){const e=document.createElement('div');e.className='live-list-empty';e.textContent='オンラインのプレイヤーがいません';livePlayerListEl.appendChild(e)}
+  else ids.forEach(id=>livePlayerListEl.appendChild(buildPlayerListItem(id,data[id])));
+}
+
+async function refreshLive(){
+  try{
+    const data=await api('/api/players');
+    const seen={};
+    Object.keys(data||{}).forEach(id=>{const p=data[id];if(!p||typeof p.x!=='number'||typeof p.z!=='number')return;seen[id]=true;if(isInsideMapBounds(p.x,p.z))upsertLiveMarker(id,p.x,p.z);else removeLiveMarker(id)});
+    Object.keys(liveMarkers).forEach(id=>{if(!seen[id])removeLiveMarker(id)});
+    renderLivePlayerList(data||{});
+    liveStatusChip.textContent='接続中';
+    liveCountChip.textContent='プレイヤー: '+Object.keys(seen).length+'人';
+  }catch(e){liveStatusChip.textContent='接続エラー';showError('プレイヤー情報の取得に失敗: '+e.message)}
+}
+
+function startLive(){if(liveTimer)clearInterval(liveTimer);liveStatusChip.textContent='接続中...';refreshLive();liveTimer=setInterval(refreshLive,2000)}
+function stopLive(){if(liveTimer)clearInterval(liveTimer);liveTimer=null;clearAllLiveMarkers();livePlayerListEl.innerHTML='';liveStatusChip.textContent='未接続';liveCountChip.textContent='プレイヤー: 0人'}
+
+liveToggleBtn.addEventListener('click',()=>{
+  liveActive=!liveActive;
+  if(liveActive){liveToggleBtn.textContent='ライブ表示: ON';liveToggleBtn.classList.add('danger');startLive()}
+  else{liveToggleBtn.textContent='ライブ表示: OFF';liveToggleBtn.classList.remove('danger');stopLive()}
+});
+
+document.getElementById('tab-btn-players').addEventListener('click',()=>{
+  if(!liveActive){liveActive=true;liveToggleBtn.textContent='ライブ表示: ON';liveToggleBtn.classList.add('danger');startLive()}
+});
+
+window.addEventListener('resize',fitView);
+window.addEventListener('load',()=>{
+  fitView();
+  setTimeout(fitView,50);
+  setTimeout(fitView,200);
+  fetchChunkData();
+  setInterval(fetchChunkData,10000);
+  // 初期状態でlive-player-listだけ表示
+  document.getElementById('live-player-list').style.display='flex';
+  document.getElementById('country-list-wrap').style.display='none';
+});
+if(mapImg.complete)fitView();else mapImg.addEventListener('load',fitView);
 </script>
 </body>
 </html>
