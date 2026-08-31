@@ -170,17 +170,23 @@ const WORKER_API = 'https://map.hp7vvyvc25.workers.dev';
 const MAP_BOUNDS = { x1: -9215, z1: -4607, x2: 9215, z2: 4607 };
 const CHUNK_SIZE = 16;
 
-// ★ IMG_W/IMG_H は動的に更新する（let に変更）
-// MAP_BOUNDS の縦横比で初期化
-let IMG_W = MAP_BOUNDS.x2 - MAP_BOUNDS.x1; // 18430
-let IMG_H = MAP_BOUNDS.z2 - MAP_BOUNDS.z1; // 9214
+// MAP_BOUNDS全体の幅・高さ（スクロール範囲の基準に使う）
+const FULL_MC_W = MAP_BOUNDS.x2 - MAP_BOUNDS.x1; // 18430
+const FULL_MC_H = MAP_BOUNDS.z2 - MAP_BOUNDS.z1; // 9214
 
-// ★ mapImgのMC座標上での表示オフセット（部分レンダリング対応）
-// デフォルトはMAP_BOUNDS全体
+// 現在マップ画像が表すMC座標範囲（autoLoadBlockMapで更新）
 let mapImgMcX1 = MAP_BOUNDS.x1;
 let mapImgMcZ1 = MAP_BOUNDS.z1;
 let mapImgMcX2 = MAP_BOUNDS.x2;
 let mapImgMcZ2 = MAP_BOUNDS.z2;
+
+// 画像のピクセルサイズ（autoLoadBlockMapで更新）
+let IMG_W = FULL_MC_W;
+let IMG_H = FULL_MC_H;
+
+// ★ ズーム・パンはMAP_BOUNDS全体を仮想キャンバスとして扱う
+// view.(x,y,scale) はMAP_BOUNDS全体(FULL_MC_W × FULL_MC_H)に対するビュー変換
+const view = { x: 0, y: 0, scale: 1 };
 
 const BLOCK_COLORS = {
   'minecraft:grass_block':'#5d8a2e','minecraft:dirt':'#8b5e3c','minecraft:stone':'#7a7a7a',
@@ -227,7 +233,6 @@ function getCountryColor(n) {
 }
 function hueFromString(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h + s.charCodeAt(i) * 7) % 360; return h; }
 
-const view = { x: 0, y: 0, scale: 1 };
 const mapArea     = document.getElementById('map-area');
 const mapImg      = document.getElementById('map-img');
 const chunkCanvas = document.getElementById('chunk-canvas');
@@ -250,23 +255,39 @@ function showError(msg) {
 
 function getPanelHeight() { return document.getElementById('panel').getBoundingClientRect().height || 0; }
 
-// ★ fitView: IMG_W/IMG_H (=レンダリングされた矩形の論理サイズ) でフィット
+// ★★ 修正① fitView
+// MAP_BOUNDS全体(FULL_MC_W/FULL_MC_H)を基準にスケールを決定する。
+// これにより部分データ画像が小さくてもスクロール範囲がMAP_BOUNDS全体になる。
 function fitView() {
   const r = mapArea.getBoundingClientRect();
   const ph = getPanelHeight();
   if (r.width <= 0 || r.height <= 0) return;
   const ah = Math.max(r.height - ph, 100);
-  view.scale = Math.min(r.width / IMG_W, ah / IMG_H);
-  view.x = (r.width - IMG_W * view.scale) / 2;
-  view.y = (ah - IMG_H * view.scale) / 2;
+  // ★ FULL_MC_W/FULL_MC_H 基準のスケールでfitする
+  view.scale = Math.min(r.width / FULL_MC_W, ah / FULL_MC_H);
+  // 画面中央にMAP_BOUNDS全体を配置
+  view.x = (r.width  - FULL_MC_W * view.scale) / 2;
+  view.y = (ah - FULL_MC_H * view.scale) / 2;
   applyView();
 }
 
 function applyView() {
-  mapImg.style.width  = IMG_W * view.scale + 'px';
-  mapImg.style.height = IMG_H * view.scale + 'px';
-  mapImg.style.left   = view.x + 'px';
-  mapImg.style.top    = view.y + 'px';
+  // ★★ mapImgの位置・サイズはIMG_W/IMG_Hではなく
+  //    mapImgMcX1〜X2のMC範囲をFULL_MC_W基準のスケールで配置する
+  const imgMcW = mapImgMcX2 - mapImgMcX1;
+  const imgMcH = mapImgMcZ2 - mapImgMcZ1;
+  const imgPxW = imgMcW * view.scale;
+  const imgPxH = imgMcH * view.scale;
+
+  // MC座標 → スクリーン座標の変換（FULL_MC_W基準）
+  const imgLeft = view.x + (mapImgMcX1 - MAP_BOUNDS.x1) * view.scale;
+  const imgTop  = view.y + (mapImgMcZ1 - MAP_BOUNDS.z1) * view.scale;
+
+  mapImg.style.width  = imgPxW + 'px';
+  mapImg.style.height = imgPxH + 'px';
+  mapImg.style.left   = imgLeft + 'px';
+  mapImg.style.top    = imgTop  + 'px';
+
   const r = mapArea.getBoundingClientRect();
   chunkCanvas.width  = r.width;
   chunkCanvas.height = r.height;
@@ -274,35 +295,33 @@ function applyView() {
   drawChunks();
 }
 
+// ★★ 修正① clampView
+// FULL_MC_W/FULL_MC_H基準でスクロール範囲を計算。
+// これにより右・左端のMAP_BOUNDSまでパンできる。
 function clampView() {
   const r = mapArea.getBoundingClientRect();
   const ph = getPanelHeight();
   const ah = Math.max(r.height - ph, 100);
-  const cw = IMG_W * view.scale;
-  const ch = IMG_H * view.scale;
+  const cw = FULL_MC_W * view.scale; // MAP_BOUNDS全体幅のピクセル換算
+  const ch = FULL_MC_H * view.scale;
   if (cw <= r.width)  view.x = (r.width - cw) / 2;
   else view.x = Math.min(0, Math.max(r.width - cw, view.x));
   if (ch <= ah)  view.y = (ah - ch) / 2;
   else view.y = Math.min(0, Math.max(ah - ch, view.y));
 }
 
-// ★★ mcToPixel/pixelToMc は mapImgMc* の範囲をIMG_W/IMG_Hにマッピングする
-// これにより部分レンダリングでも座標が正しく対応する
+// ★★ 座標変換もFULL_MC_W基準（MAP_BOUNDS x1,z1 を原点とする）
 function mcToPixel(x, z) {
-  const mcRangeX = mapImgMcX2 - mapImgMcX1;
-  const mcRangeZ = mapImgMcZ2 - mapImgMcZ1;
   return {
-    x: view.x + ((x - mapImgMcX1) / mcRangeX) * IMG_W * view.scale,
-    y: view.y + ((z - mapImgMcZ1) / mcRangeZ) * IMG_H * view.scale,
+    x: view.x + (x - MAP_BOUNDS.x1) * view.scale,
+    y: view.y + (z - MAP_BOUNDS.z1) * view.scale,
   };
 }
 
 function pixelToMc(px, py) {
-  const mcRangeX = mapImgMcX2 - mapImgMcX1;
-  const mcRangeZ = mapImgMcZ2 - mapImgMcZ1;
   return {
-    x: Math.round(mapImgMcX1 + ((px - view.x) / (IMG_W * view.scale)) * mcRangeX),
-    z: Math.round(mapImgMcZ1 + ((py - view.y) / (IMG_H * view.scale)) * mcRangeZ),
+    x: Math.round(MAP_BOUNDS.x1 + (px - view.x) / view.scale),
+    z: Math.round(MAP_BOUNDS.z1 + (py - view.y) / view.scale),
   };
 }
 
@@ -399,9 +418,11 @@ let tooltipTimer = null;
 function onMapTap(cx, cy) {
   const r = mapArea.getBoundingClientRect();
   const lx = cx - r.left, ly = cy - r.top;
-  const mapLeft = view.x, mapTop = view.y;
-  const mapRight = view.x + IMG_W * view.scale;
-  const mapBottom = view.y + IMG_H * view.scale;
+  // MAP_BOUNDS全体のピクセル範囲でチェック
+  const mapLeft   = view.x;
+  const mapTop    = view.y;
+  const mapRight  = view.x + FULL_MC_W * view.scale;
+  const mapBottom = view.y + FULL_MC_H * view.scale;
   if (lx < mapLeft || lx > mapRight || ly < mapTop || ly > mapBottom) return;
   tapMark.style.display = 'block';
   tapMark.style.left = lx + 'px';
@@ -434,18 +455,16 @@ function doJumpTo() {
   jumpMark.style.top  = p.y + 'px';
 }
 
+// ★ zoomToMcCoordもFULL_MC_W基準に修正
 function zoomToMcCoord(x, z, target) {
   const r = mapArea.getBoundingClientRect();
   const ph = getPanelHeight();
   const ah = Math.max(r.height - ph, 100);
-  const min = Math.min(r.width / IMG_W, ah / IMG_H);
+  const min = Math.min(r.width / FULL_MC_W, ah / FULL_MC_H);
   const ns = Math.min(Math.max(target, min), 15);
-  const mcRangeX = mapImgMcX2 - mapImgMcX1;
-  const mcRangeZ = mapImgMcZ2 - mapImgMcZ1;
-  const rx = (x - mapImgMcX1) / mcRangeX;
-  const rz = (z - mapImgMcZ1) / mcRangeZ;
-  view.x = r.width / 2 - rx * IMG_W * ns;
-  view.y = ah / 2 - rz * IMG_H * ns;
+  // MC座標 → 画面中央に来るようにview.x/yを設定
+  view.x = r.width  / 2 - (x - MAP_BOUNDS.x1) * ns;
+  view.y = ah / 2       - (z - MAP_BOUNDS.z1) * ns;
   view.scale = ns;
   clampView();
   applyView();
@@ -596,7 +615,7 @@ function onTouchMove(e) {
     const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
     const r = mapArea.getBoundingClientRect();
     const ph = getPanelHeight(), ah = Math.max(r.height - ph, 100);
-    const min = Math.min(r.width / IMG_W, ah / IMG_H);
+    const min = Math.min(r.width / FULL_MC_W, ah / FULL_MC_H);
     const ns = Math.min(Math.max(view.scale * dist / pinchDist, min), 15);
     const ox = pinchMidX - r.left, oy = pinchMidY - r.top;
     view.x = ox - (ox - view.x) * (ns / view.scale);
@@ -657,7 +676,7 @@ chunkCanvas.addEventListener('wheel', e => {
 function zoomAt(cx, cy, f) {
   const r = mapArea.getBoundingClientRect();
   const ph = getPanelHeight(), ah = Math.max(r.height - ph, 100);
-  const min = Math.min(r.width / IMG_W, ah / IMG_H);
+  const min = Math.min(r.width / FULL_MC_W, ah / FULL_MC_H);
   const ns = Math.min(Math.max(view.scale * f, min), 15);
   const ox = cx - r.left, oy = cy - r.top;
   view.x = ox - (ox - view.x) * (ns / view.scale);
@@ -788,14 +807,36 @@ async function loadAndRender() {
   btnRenderLoad.disabled = true; btnRenderSave.disabled = true;
   renderStat.textContent = 'データ取得中...'; renderProgress.style.width = '0%';
   renderImageDataURL = null;
+
   let meta, rawData;
-  try { const res = await api('/api/blocks'); meta = res.meta || {}; rawData = res.data || {}; }
-  catch (e) { renderStat.textContent = '取得失敗: ' + e.message; btnRenderLoad.disabled = false; return; }
+  try {
+    // ★★ 修正②: レスポンス構造を両方に対応
+    // Cloudflare Workerが { meta, data } を返す場合と、
+    // data だけを返す場合の両方を処理する
+    const res = await api('/api/blocks');
+    if (res && typeof res === 'object' && ('data' in res || 'meta' in res)) {
+      meta    = res.meta || {};
+      rawData = res.data || {};
+    } else {
+      // Workerがオブジェクトをそのまま返している場合
+      meta    = {};
+      rawData = res || {};
+    }
+  } catch (e) {
+    renderStat.textContent = '取得失敗: ' + e.message;
+    btnRenderLoad.disabled = false;
+    return;
+  }
+
   const entries = Object.entries(rawData);
   const total = entries.length;
-  if (total === 0) { renderStat.textContent = 'データなし。マイクラで /earth:rendering を実行してください。'; btnRenderLoad.disabled = false; return; }
+  if (total === 0) {
+    renderStat.textContent = 'データなし。マイクラで /earth:rendering を実行してください。';
+    btnRenderLoad.disabled = false;
+    return;
+  }
+
   renderStat.textContent = `描画中... (${total}ブロック)`;
-  // 実際のブロック範囲を計算（★ MAP_BOUNDS全体ではなく実データ範囲）
   let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
   for (const [key] of entries) {
     const negX = key.startsWith('-');
@@ -857,40 +898,58 @@ btnRenderLoad.addEventListener('click', loadAndRender);
 btnRenderSave.addEventListener('click', saveRenderAsPng);
 
 // ══════════════════════════════════════════════════════════════════════════════
-// ★★ autoLoadBlockMap 全面修正
-// 変更点：
-//   1. スキャン済みブロックの実際のMC座標範囲(minX~maxX, minZ~maxZ)でキャンバスを作る
-//   2. キャンバスをMAP_BOUNDS全体ではなくその範囲だけに描画（青が出ない）
-//   3. mapImgMcX1/Z1/X2/Z2 と IMG_W/IMG_H を更新 → 座標変換が正しくなる
-//   4. 比率: 実データの縦横比でキャンバスを作るので枠もおかしくならない
+// ★★ 修正② autoLoadBlockMap
+// 変更点:
+//   1. APIレスポンス構造の両方に対応 (res.data / res 直接)
+//   2. lastAutoScanned チェックを緩和（scanning中でもブロック数増加なら描画）
+//   3. _autoCanvas を mapImg 専用の別キャンバスに分離（render-canvasと混在しない）
+//   4. mapImgMcX1/Z1/X2/Z2 と IMG_W/IMG_H を更新（applyView用）
 // ══════════════════════════════════════════════════════════════════════════════
-let lastAutoScanned = 0;
-const _autoCanvas = document.getElementById('render-canvas'); // 共用
+let lastAutoScanned   = 0;
+let lastAutoBlockCount = 0;
+// ★ mapImg描画用に独立したオフスクリーンキャンバスを使う（render-canvasと分離）
+const _autoOffscreen  = document.createElement('canvas');
 
 async function autoLoadBlockMap() {
   try {
     const res = await api('/api/blocks');
-    const meta = res.meta || {};
-    const rawData = res.data || {};
+
+    // ★★ レスポンス構造を両方に対応
+    let meta, rawData;
+    if (res && typeof res === 'object' && ('data' in res || 'meta' in res)) {
+      meta    = res.meta || {};
+      rawData = res.data || {};
+    } else {
+      meta    = {};
+      rawData = res || {};
+    }
+
     const blockCount = Object.keys(rawData).length;
 
-    if (meta.scanning) {
-      const pct = meta.scanProgress ?? 0;
-      hdrInfo.textContent = `スキャン進行中: ${pct}% (${blockCount.toLocaleString()}ブロック取得済み)`;
-      if (blockCount === 0) return;
-    } else if (blockCount === 0) {
+    // データ0件の場合
+    if (blockCount === 0) {
       hdrInfo.textContent = 'ブロックデータ未生成 — マイクラで /earth:rendering を実行してください';
       return;
     }
 
-    const scanned = meta.lastScanned || 0;
-    if (!meta.scanning && scanned && scanned <= lastAutoScanned) return;
-    if (!meta.scanning) lastAutoScanned = scanned;
+    // scanning中の表示
+    if (meta.scanning) {
+      const pct = meta.scanProgress ?? 0;
+      hdrInfo.textContent = `スキャン進行中: ${pct >= 0 ? pct + '%' : '収集中'} (${blockCount.toLocaleString()}ブロック取得済み)`;
+      // ★ スキャン中でもブロック数が増えていれば描画更新する
+      if (blockCount <= lastAutoBlockCount) return;
+    } else {
+      // スキャン完了後：lastScannedが変わっていなければスキップ
+      const scanned = meta.lastScanned || 0;
+      if (scanned && scanned <= lastAutoScanned) return;
+      if (scanned) lastAutoScanned = scanned;
+    }
+    lastAutoBlockCount = blockCount;
 
     hdrInfo.textContent = 'マップ描画中...';
     const entries = Object.entries(rawData);
 
-    // ★ Step1: 実データのMC座標範囲を計算
+    // Step1: 実データのMC座標範囲を計算
     let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
     for (const [key] of entries) {
       const negX = key.startsWith('-');
@@ -910,34 +969,29 @@ async function autoLoadBlockMap() {
       return;
     }
 
-    // ★ Step2: チャンク境界に合わせて少し広げる（見た目をきれいに）
+    // Step2: チャンク境界に合わせて広げてクランプ
     const SNAP = CHUNK_SIZE;
-    minX = Math.floor(minX / SNAP) * SNAP;
-    minZ = Math.floor(minZ / SNAP) * SNAP;
-    maxX = Math.ceil((maxX + 1) / SNAP) * SNAP;
-    maxZ = Math.ceil((maxZ + 1) / SNAP) * SNAP;
-    // MAP_BOUNDS内にクランプ
-    minX = Math.max(minX, MAP_BOUNDS.x1); minZ = Math.max(minZ, MAP_BOUNDS.z1);
-    maxX = Math.min(maxX, MAP_BOUNDS.x2); maxZ = Math.min(maxZ, MAP_BOUNDS.z2);
+    minX = Math.max(Math.floor(minX / SNAP) * SNAP, MAP_BOUNDS.x1);
+    minZ = Math.max(Math.floor(minZ / SNAP) * SNAP, MAP_BOUNDS.z1);
+    maxX = Math.min(Math.ceil((maxX + 1) / SNAP) * SNAP, MAP_BOUNDS.x2);
+    maxZ = Math.min(Math.ceil((maxZ + 1) / SNAP) * SNAP, MAP_BOUNDS.z2);
 
     const rangeX = maxX - minX;
     const rangeZ = maxZ - minZ;
     if (rangeX <= 0 || rangeZ <= 0) return;
 
-    // ★ Step3: キャンバスサイズ（実データ範囲の比率で）
+    // Step3: オフスクリーンキャンバスサイズ
     const MAX_PX = 2048;
-    const scale = Math.min(1, MAX_PX / Math.max(rangeX, rangeZ));
+    const scale  = Math.min(1, MAX_PX / Math.max(rangeX, rangeZ));
     const cw = Math.max(1, Math.ceil(rangeX * scale));
     const ch = Math.max(1, Math.ceil(rangeZ * scale));
 
-    _autoCanvas.width  = cw;
-    _autoCanvas.height = ch;
-    const ctx = _autoCanvas.getContext('2d');
-
-    // 背景は透明（描画済みブロックのみ色付き）
+    _autoOffscreen.width  = cw;
+    _autoOffscreen.height = ch;
+    const ctx = _autoOffscreen.getContext('2d');
     ctx.clearRect(0, 0, cw, ch);
 
-    // ★ Step4: ブロックを描画（範囲内のみ）
+    // Step4: ブロックをImageDataに直接書き込む（高速）
     const imageData = ctx.getImageData(0, 0, cw, ch);
     const d = imageData.data;
 
@@ -963,36 +1017,39 @@ async function autoLoadBlockMap() {
       const g      = parseInt(hex.slice(2, 4), 16);
       const b      = parseInt(hex.slice(4, 6), 16);
       const pi     = (pz * cw + px) * 4;
-      d[pi]   = Math.min(255, r * bright);
-      d[pi+1] = Math.min(255, g * bright);
-      d[pi+2] = Math.min(255, b * bright);
+      d[pi]   = Math.min(255, Math.round(r * bright));
+      d[pi+1] = Math.min(255, Math.round(g * bright));
+      d[pi+2] = Math.min(255, Math.round(b * bright));
       d[pi+3] = 255;
     }
 
     ctx.putImageData(imageData, 0, 0);
 
-    // ★ Step5: mapImgのMC範囲とIMG_W/IMG_Hを更新
+    // Step5: mapImgのMC範囲を更新（座標変換用）
     mapImgMcX1 = minX; mapImgMcZ1 = minZ;
     mapImgMcX2 = maxX; mapImgMcZ2 = maxZ;
     IMG_W = cw;
     IMG_H = ch;
 
-    // ★ Step6: mapImgに反映
-    const dataUrl = _autoCanvas.toDataURL('image/png');
+    // Step6: mapImgに反映
+    const dataUrl = _autoOffscreen.toDataURL('image/png');
     renderImageDataURL = dataUrl;
     btnRenderSave.disabled = false;
 
-    mapImg.src = dataUrl;
     mapImg.onload = () => { fitView(); drawChunks(); };
+    mapImg.src = dataUrl;
 
     if (meta.lastScanned) {
       const dt = new Date(meta.lastScanned).toLocaleString('ja-JP');
       hdrInfo.textContent = `最終更新: ${dt}  (${entries.length.toLocaleString()}ブロック)  X[${minX}〜${maxX}] Z[${minZ}〜${maxZ}]`;
+    } else {
+      hdrInfo.textContent = `スキャン中 (${entries.length.toLocaleString()}ブロック)  X[${minX}〜${maxX}] Z[${minZ}〜${maxZ}]`;
     }
     renderStat.textContent = `自動描画済み — ${entries.length.toLocaleString()}ブロック (${cw}×${ch}px)`;
 
   } catch (e) {
     hdrInfo.textContent = 'ブロックデータ取得失敗: ' + e.message;
+    console.error('autoLoadBlockMap error:', e);
   }
 }
 
