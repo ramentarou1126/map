@@ -311,7 +311,7 @@ function pixelToMc(px,py){return{x:Math.round(MAP_BOUNDS.x1+(px-view.x)/(IMG_W*v
 function isInsideMapBounds(x,z){return x>=MAP_BOUNDS.x1&&x<=MAP_BOUNDS.x2&&z>=MAP_BOUNDS.z1&&z<=MAP_BOUNDS.z2}
 
 let allChunkData={};
-async function fetchChunkData(){try{const data=await fetch(WORKER_API+'/api/chunks').then(r=>r.json());allChunkData=data||{};renderCountryList()}catch(e){console.warn('チャンクデータ取得失敗:',e)}}
+async function fetchChunkData(){try{const data=await fetch(WORKER_API+'/api/chunks').then(r=>r.json());allChunkData=data||{};renderCountryList();drawChunks();}catch(e){console.warn('チャンクデータ取得失敗:',e)}}
 
 function drawChunks(){
   const ctx=chunkCanvas.getContext('2d');ctx.clearRect(0,0,chunkCanvas.width,chunkCanvas.height);
@@ -602,24 +602,25 @@ async function autoLoadBlockMap() {
     const res = await api('/api/blocks');
     const meta    = res.meta || {};
     const rawData = res.data || {};
+    const blockCount = Object.keys(rawData).length;
 
-    // データなし
-    if (Object.keys(rawData).length === 0) {
+    // スキャン進行中の場合はまずヘッダーに進捗を表示
+    if (meta.scanning) {
+      const pct = meta.scanProgress ?? 0;
+      hdrInfo.textContent = `スキャン進行中: ${pct}% (${blockCount.toLocaleString()}ブロック取得済み)`;
+      // データがなければ終了、あれば描画続行
+      if (blockCount === 0) return;
+    } else if (blockCount === 0) {
+      // スキャン中でもなく、データもない
       hdrInfo.textContent = 'ブロックデータ未生成 — マイクラで /earth:rendering を実行してください';
       return;
     }
 
-    // スキャン進行中の場合はヘッダーに進捗を表示
-    if (meta.scanning) {
-      hdrInfo.textContent = `スキャン進行中: ${meta.scanProgress ?? 0}% (${Object.keys(rawData).length.toLocaleString()}ブロック取得済み)`;
-      // 途中データがあれば描画続行、なければここで終了
-      if (Object.keys(rawData).length === 0) return;
-    }
-
-    // 前回と同じデータなら再描画しない
+    // 完了済みスキャンは前回と同じデータなら再描画しない
+    // スキャン中(scanning=true)は常に再描画する
     const scanned = meta.lastScanned || 0;
-    if (scanned && scanned <= lastAutoScanned) return;
-    lastAutoScanned = scanned;
+    if (!meta.scanning && scanned && scanned <= lastAutoScanned) return;
+    if (!meta.scanning) lastAutoScanned = scanned;
 
     hdrInfo.textContent = 'マップ描画中...';
 
