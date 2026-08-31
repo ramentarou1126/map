@@ -1122,7 +1122,7 @@ window.addEventListener('load', () => {
     await autoLoadBlockMap();
     // meta.scanningが取れないのでDOM上のテキストで判定（簡易）
     const scanning = hdrInfo.textContent.includes('スキャン進行中');
-    _autoLoadTimer = setTimeout(scheduleAutoLoad, scanning ? 10000 : 60000);
+    _autoLoadTimer = setTimeout(scheduleAutoLoad, scanning ? 5000 : 60000);
   }
   scheduleAutoLoad();
 });
