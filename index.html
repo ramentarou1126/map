@@ -808,11 +808,10 @@ async function loadAndRender() {
   // ★ チャンク座標に変換してMapに集約
   const chunkMap = new Map();
   for (const [key, val] of entries) {
-    const negX = key.startsWith('-');
-    const rest = negX ? key.slice(1) : key;
-    const u = rest.indexOf('_'); if (u === -1) continue;
-    const bx = parseInt((negX ? '-' : '') + rest.slice(0, u));
-    const bz = parseInt(rest.slice(u + 1));
+    // ★ lastIndexOf('_') で正しく負座標を分割
+    const u = key.lastIndexOf('_'); if (u === -1) continue;
+    const bx = parseInt(key.slice(0, u));
+    const bz = parseInt(key.slice(u + 1));
     if (isNaN(bx) || isNaN(bz)) continue;
     const cx = Math.floor(bx / CHUNK_SIZE);
     const cz = Math.floor(bz / CHUNK_SIZE);
@@ -928,8 +927,8 @@ async function autoLoadBlockMap() {
 
     if (meta.scanning) {
       const pct = meta.scanProgress ?? 0;
-      hdrInfo.textContent = `スキャン進行中: ${pct >= 0 ? pct + '%' : '収集中'} (${blockCount.toLocaleString()}ブロック取得済み)`;
-      if (blockCount <= lastAutoBlockCount) return;
+      hdrInfo.textContent = `スキャン進行中: 収集中 (${blockCount.toLocaleString()}チャンク取得済み)`;
+      // ★ ブロック数が増えていなくてもスキャン中は常に再描画する
     } else {
       const scanned = meta.lastScanned || 0;
       if (scanned && scanned <= lastAutoScanned) return;
@@ -947,12 +946,12 @@ async function autoLoadBlockMap() {
     let minCX = Infinity, maxCX = -Infinity, minCZ = Infinity, maxCZ = -Infinity;
 
     for (const [key, val] of entries) {
-      const negX = key.startsWith('-');
-      const rest = negX ? key.slice(1) : key;
-      const uIdx = rest.indexOf('_');
+      // ★ キー形式: "bx_bz"（bxもbzも負になりうる）
+      // _ で最後に分割することで負号を正しく扱う
+      const uIdx = key.lastIndexOf('_');
       if (uIdx === -1) continue;
-      const bx = parseInt((negX ? '-' : '') + rest.slice(0, uIdx));
-      const bz = parseInt(rest.slice(uIdx + 1));
+      const bx = parseInt(key.slice(0, uIdx));
+      const bz = parseInt(key.slice(uIdx + 1));
       if (isNaN(bx) || isNaN(bz)) continue;
       // MAP_BOUNDS範囲チェック（ブロック座標で）
       if (bx < MAP_BOUNDS.x1 || bx > MAP_BOUNDS.x2 || bz < MAP_BOUNDS.z1 || bz > MAP_BOUNDS.z2) continue;
@@ -1058,7 +1057,7 @@ window.addEventListener('load', () => {
   document.getElementById('live-player-list').style.display = 'flex';
   document.getElementById('country-list-wrap').style.display = 'none';
   document.getElementById('render-canvas-wrap').style.display = 'none';
-  autoLoadBlockMap(); setInterval(autoLoadBlockMap, 15000);
+  autoLoadBlockMap(); setInterval(autoLoadBlockMap, 60000);
 });
 </script>
 </body>
