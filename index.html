@@ -307,12 +307,18 @@ function isInsideMapBounds(x, z) {
 }
 
 let allChunkData = {};
+let _lastChunkDataStr = '';
 async function fetchChunkData() {
   try {
     const data = await fetch(WORKER_API + '/api/chunks').then(r => r.json());
+    const newStr = JSON.stringify(data || {});
+    const changed = newStr !== _lastChunkDataStr;
     allChunkData = data || {};
-    renderCountryList();
-    drawChunks();
+    if (changed) {
+      _lastChunkDataStr = newStr;
+      renderCountryList();
+      drawChunks();
+    }
   } catch (e) { console.warn('チャンクデータ取得失敗:', e); }
 }
 
@@ -853,13 +859,19 @@ async function loadAndRender() {
       const px0 = (cx - minCX) * chunkPx;
       const pz0 = (cz - minCZ) * chunkPx;
 
-      const y = val.y ?? 64;
-      const bright = Math.min(1, Math.max(0.5, (y + 64) / 320));
-      const baseCol = blockColor(val.id || 'minecraft:stone');
-      const hex = baseCol.startsWith('#') ? baseCol.slice(1) : '808080';
-      const r = Math.min(255, Math.round(parseInt(hex.slice(0,2),16) * bright));
-      const g = Math.min(255, Math.round(parseInt(hex.slice(2,4),16) * bright));
-      const b = Math.min(255, Math.round(parseInt(hex.slice(4,6),16) * bright));
+      // ★ 水判定: Y62以下 or 水系ブロック → 青色固定
+      let r, g, b;
+      if (isWaterChunk(val)) {
+        r = 0x3c; g = 0x6f; b = 0xa8;
+      } else {
+        const y = val.y ?? 64;
+        const bright = Math.min(1, Math.max(0.5, (y + 64) / 320));
+        const baseCol = blockColor(val.id || 'minecraft:stone');
+        const hex = baseCol.startsWith('#') ? baseCol.slice(1) : '808080';
+        r = Math.min(255, Math.round(parseInt(hex.slice(0,2),16) * bright));
+        g = Math.min(255, Math.round(parseInt(hex.slice(2,4),16) * bright));
+        b = Math.min(255, Math.round(parseInt(hex.slice(4,6),16) * bright));
+      }
 
       // ★ chunkPx×chunkPx を塗りつぶす（隙間なし）
       for (let dy = 0; dy < chunkPx; dy++) {
@@ -906,6 +918,35 @@ let lastAutoScanned    = 0;
 let lastAutoBlockCount = 0;
 const _autoOffscreen   = document.createElement('canvas');
 
+// ★ スキャン中の変化検出用ハッシュ（チャンクid文字列を結合して変化を検知）
+let _lastAutoHash = '';
+
+// ★ チャンク内容から簡易ハッシュ文字列を生成（変化検出用）
+function makeChunkHash(chunkMap) {
+  const keys = [...chunkMap.keys()].sort();
+  let h = '';
+  for (const k of keys) {
+    const v = chunkMap.get(k);
+    h += k + ':' + (v?.id || '') + ':' + (v?.y ?? '') + '|';
+  }
+  return h;
+}
+
+// ★ 水判定（Y62以下 or 水系ブロック）
+function isWaterChunk(val) {
+  if (!val) return true;
+  const id = val.id || '';
+  const y  = val.y ?? 64;
+  const isWaterBlock = id === 'minecraft:water' || id === 'minecraft:kelp' ||
+    id === 'minecraft:seagrass' || id === 'minecraft:tall_seagrass' ||
+    id === 'minecraft:bubble_column';
+  // Y62以下で水系でも非水系でも → 水として扱う（地面が水に埋もれている）
+  // Y62より上に何もなければ → firebase_sync.js側でwaterに変換済みのはずだが、念のためHTML側でも
+  if (y <= 62 && !isWaterBlock) return true; // 水の下の地面 → 青
+  if (isWaterBlock) return true;
+  return false;
+}
+
 async function autoLoadBlockMap() {
   try {
     const res = await api('/api/blocks');
@@ -925,39 +966,41 @@ async function autoLoadBlockMap() {
       return;
     }
 
-    if (meta.scanning) {
-      const pct = meta.scanProgress ?? 0;
-      hdrInfo.textContent = `スキャン進行中: 収集中 (${blockCount.toLocaleString()}チャンク取得済み)`;
-      // ★ ブロック数が増えていなくてもスキャン中は常に再描画する
-    } else {
+    // スキャン完了判定（スキャン中でない場合）
+    if (!meta.scanning) {
       const scanned = meta.lastScanned || 0;
       if (scanned && scanned <= lastAutoScanned) return;
       if (scanned) lastAutoScanned = scanned;
     }
     lastAutoBlockCount = blockCount;
 
-    hdrInfo.textContent = 'マップ描画中...';
+    hdrInfo.textContent = meta.scanning
+      ? `スキャン進行中: 収集中 (${blockCount.toLocaleString()}チャンク取得済み)`
+      : 'マップ描画中...';
+
     const entries = Object.entries(rawData);
 
     // ★ Step1: キーをチャンク座標に変換して集約
-    //   firebase_sync.js が "cx*16+8_cz*16+8" をキーとして1チャンク1エントリ送っている
-    //   → Math.floor(bx / 16) = cx を復元
+    // キー形式: "bx_bz"（bxもbzも負になりうる）
     const chunkMap = new Map(); // "cx_cz" → {id, y}
+    // ★ MAP_BOUNDSをチャンク座標に変換（右端欠け修正）
+    const MAP_CX1 = Math.floor(MAP_BOUNDS.x1 / CHUNK_SIZE);
+    const MAP_CX2 = Math.floor(MAP_BOUNDS.x2 / CHUNK_SIZE);
+    const MAP_CZ1 = Math.floor(MAP_BOUNDS.z1 / CHUNK_SIZE);
+    const MAP_CZ2 = Math.floor(MAP_BOUNDS.z2 / CHUNK_SIZE);
+
     let minCX = Infinity, maxCX = -Infinity, minCZ = Infinity, maxCZ = -Infinity;
 
     for (const [key, val] of entries) {
-      // ★ キー形式: "bx_bz"（bxもbzも負になりうる）
-      // _ で最後に分割することで負号を正しく扱う
       const uIdx = key.lastIndexOf('_');
       if (uIdx === -1) continue;
       const bx = parseInt(key.slice(0, uIdx));
       const bz = parseInt(key.slice(uIdx + 1));
       if (isNaN(bx) || isNaN(bz)) continue;
-      // MAP_BOUNDS範囲チェック（ブロック座標で）
-      if (bx < MAP_BOUNDS.x1 || bx > MAP_BOUNDS.x2 || bz < MAP_BOUNDS.z1 || bz > MAP_BOUNDS.z2) continue;
-      // チャンク座標に変換
+      // ★ チャンク座標に変換してからMAP_BOUNDS判定（右端欠け修正）
       const cx = Math.floor(bx / CHUNK_SIZE);
       const cz = Math.floor(bz / CHUNK_SIZE);
+      if (cx < MAP_CX1 || cx > MAP_CX2 || cz < MAP_CZ1 || cz > MAP_CZ2) continue;
       chunkMap.set(`${cx}_${cz}`, val);
       minCX = Math.min(minCX, cx); maxCX = Math.max(maxCX, cx);
       minCZ = Math.min(minCZ, cz); maxCZ = Math.max(maxCZ, cz);
@@ -968,11 +1011,22 @@ async function autoLoadBlockMap() {
       return;
     }
 
+    // ★ スキャン中: チャンク内容が変わっていない場合はスキップ
+    if (meta.scanning) {
+      const hash = makeChunkHash(chunkMap);
+      if (hash === _lastAutoHash) {
+        hdrInfo.textContent = `スキャン進行中: 収集中 (${blockCount.toLocaleString()}チャンク取得済み)`;
+        return;
+      }
+      _lastAutoHash = hash;
+    } else {
+      _lastAutoHash = '';
+    }
+
     // ★ Step2: チャンク数ベースのキャンバスサイズ（1チャンク=1px、隙間なし）
     const numCX = maxCX - minCX + 1;
     const numCZ = maxCZ - minCZ + 1;
     const MAX_PX = 2048;
-    // 1チャンク何pxか（基本1、チャンク数が多い場合のみ縮小）
     const chunkPx = Math.max(1, Math.floor(Math.min(MAX_PX / numCX, MAX_PX / numCZ)));
     const cw = numCX * chunkPx;
     const ch = numCZ * chunkPx;
@@ -995,15 +1049,20 @@ async function autoLoadBlockMap() {
       const px0 = (cx - minCX) * chunkPx;
       const pz0 = (cz - minCZ) * chunkPx;
 
-      const y      = val?.y ?? 64;
-      const bright = Math.min(1.1, Math.max(0.55, (y + 64) / 290));
-      const col    = blockColor(val?.id || 'minecraft:stone');
-      const hex    = col.startsWith('#') ? col.slice(1) : '808080';
-      const r      = Math.min(255, Math.round(parseInt(hex.slice(0, 2), 16) * bright));
-      const g      = Math.min(255, Math.round(parseInt(hex.slice(2, 4), 16) * bright));
-      const b      = Math.min(255, Math.round(parseInt(hex.slice(4, 6), 16) * bright));
+      // ★ 水判定: Y62以下 or 水系ブロック → 青色固定
+      let r, g, b;
+      if (isWaterChunk(val)) {
+        r = 0x3c; g = 0x6f; b = 0xa8;
+      } else {
+        const y      = val?.y ?? 64;
+        const bright = Math.min(1.1, Math.max(0.55, (y + 64) / 290));
+        const col    = blockColor(val?.id || 'minecraft:stone');
+        const hex    = col.startsWith('#') ? col.slice(1) : '808080';
+        r = Math.min(255, Math.round(parseInt(hex.slice(0, 2), 16) * bright));
+        g = Math.min(255, Math.round(parseInt(hex.slice(2, 4), 16) * bright));
+        b = Math.min(255, Math.round(parseInt(hex.slice(4, 6), 16) * bright));
+      }
 
-      // chunkPx×chunkPxを隙間なく塗る
       for (let dy = 0; dy < chunkPx; dy++) {
         for (let dx = 0; dx < chunkPx; dx++) {
           const pi = ((pz0 + dy) * cw + (px0 + dx)) * 4;
@@ -1057,7 +1116,15 @@ window.addEventListener('load', () => {
   document.getElementById('live-player-list').style.display = 'flex';
   document.getElementById('country-list-wrap').style.display = 'none';
   document.getElementById('render-canvas-wrap').style.display = 'none';
-  autoLoadBlockMap(); setInterval(autoLoadBlockMap, 60000);
+  // ★ スキャン中は10秒ごと、完了後は60秒ごとに自動切り替え
+  let _autoLoadTimer = null;
+  async function scheduleAutoLoad() {
+    await autoLoadBlockMap();
+    // meta.scanningが取れないのでDOM上のテキストで判定（簡易）
+    const scanning = hdrInfo.textContent.includes('スキャン進行中');
+    _autoLoadTimer = setTimeout(scheduleAutoLoad, scanning ? 10000 : 60000);
+  }
+  scheduleAutoLoad();
 });
 </script>
 </body>
