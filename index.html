@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>麺Earth MAP – デバッグ</title>
+<title>麺Earth MAP</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+JP:wght@400;700;900&display=swap');
 :root{
@@ -12,7 +12,6 @@
   --gold:#f0c419;--gold-dark:#b8941a;--diamond:#4fd1e8;--redstone:#c0392b;
   --redstone-dark:#7a1f16;--emerald:#2ecc71;--text-main:#e8e6d8;--text-dim:#8a9478;
   --font-pixel:'Press Start 2P',monospace;--font-body:'Noto Sans JP',sans-serif;
-  --dbg-ok:#2ecc71;--dbg-warn:#f0c419;--dbg-err:#c0392b;--dbg-info:#4fd1e8
 }
 *{box-sizing:border-box;margin:0;padding:0}html,body{width:100%;height:100%;overflow:hidden;background:var(--obsidian);color:var(--text-main);font-family:var(--font-body)}body{display:flex;flex-direction:column}
 #header{flex:0 0 auto;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(0,0,0,.15)),var(--dirt-dark);border-bottom:4px solid var(--gold-dark);padding:10px 14px;display:flex;align-items:center;gap:10px}
@@ -21,36 +20,8 @@
 #hdr-info{flex:1;background:rgba(0,0,0,.45);border:2px solid var(--panel-border);border-radius:3px;padding:6px 10px;font-size:12px;color:var(--emerald);text-align:center;font-family:monospace;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .error{display:none;font-family:var(--font-pixel);font-size:11px;color:#fff;padding:10px 14px;text-align:center;flex:0 0 auto;text-shadow:1px 1px 0 #000;background:#c0392b}
 .error.show{display:block}
-
-/* ── デバッグパネル ── */
-#dbg-panel{flex:0 0 auto;background:#0a0c08;border-bottom:3px solid #1a1f14;max-height:42vh;overflow-y:auto;display:flex;flex-direction:column}
-#dbg-toolbar{display:flex;gap:6px;padding:8px 10px;background:#0d0f0b;border-bottom:2px solid #1a1f14;align-items:center;flex-wrap:wrap;flex:0 0 auto}
-#dbg-toolbar .dbg-title{font-family:var(--font-pixel);font-size:9px;color:var(--gold);margin-right:4px}
-.dbg-btn{font-family:var(--font-pixel);font-size:8px;color:#fff;padding:6px 10px;cursor:pointer;border:none;border-radius:2px}
-.dbg-btn.primary{background:var(--grass);border-top:2px solid #9ed46e;border-left:2px solid #9ed46e;border-right:2px solid var(--grass-dark);border-bottom:2px solid var(--grass-dark)}
-.dbg-btn.info{background:#2a7f92;border-top:2px solid var(--diamond);border-left:2px solid var(--diamond);border-right:2px solid #1a4f5c;border-bottom:2px solid #1a4f5c}
-.dbg-btn.danger{background:var(--redstone);border-top:2px solid #e0685a;border-left:2px solid #e0685a;border-right:2px solid var(--redstone-dark);border-bottom:2px solid var(--redstone-dark)}
-.dbg-btn.stone{background:var(--stone-dark);border-top:2px solid #6e6e6e;border-left:2px solid #6e6e6e;border-right:2px solid #2c2c2c;border-bottom:2px solid #2c2c2c}
-#dbg-status-row{display:flex;gap:6px;padding:6px 10px;flex-wrap:wrap;flex:0 0 auto;background:#0a0c08;border-bottom:1px solid #1a1f14}
-.dbg-chip{font-family:monospace;font-size:11px;padding:3px 8px;border-radius:2px;border:1px solid rgba(255,255,255,.12);white-space:nowrap}
-.dbg-chip.ok{background:rgba(46,204,113,.15);color:var(--dbg-ok);border-color:rgba(46,204,113,.3)}
-.dbg-chip.warn{background:rgba(240,196,25,.12);color:var(--dbg-warn);border-color:rgba(240,196,25,.3)}
-.dbg-chip.err{background:rgba(192,57,43,.18);color:var(--dbg-err);border-color:rgba(192,57,43,.35)}
-.dbg-chip.info{background:rgba(79,209,232,.1);color:var(--dbg-info);border-color:rgba(79,209,232,.25)}
-.dbg-chip.neutral{background:rgba(255,255,255,.05);color:var(--text-dim)}
-#dbg-log{flex:1;overflow-y:auto;padding:6px 10px;display:flex;flex-direction:column;gap:2px;min-height:80px}
-.dbg-line{font-family:monospace;font-size:11px;line-height:1.5;padding:1px 0;border-bottom:1px solid rgba(255,255,255,.03)}
-.dbg-line.ok{color:var(--dbg-ok)}
-.dbg-line.warn{color:var(--dbg-warn)}
-.dbg-line.err{color:var(--dbg-err)}
-.dbg-line.info{color:var(--dbg-info)}
-.dbg-line.dim{color:var(--text-dim)}
-.dbg-line .ts{color:#3a4030;margin-right:6px;font-size:10px}
-#dbg-raw-wrap{display:none;flex:0 0 auto;max-height:120px;overflow-y:auto;background:#050705;border-top:1px solid #1a1f14;padding:6px 10px}
-#dbg-raw{font-family:monospace;font-size:10px;color:#5a7a5a;white-space:pre-wrap;word-break:break-all}
-
 #stage{flex:1;position:relative;overflow:hidden;min-height:0}
-#map-area{position:absolute;inset:0;overflow:hidden;background:radial-gradient(ellipse at center,#12233a 0%,#060a12 100%)}
+#map-area{position:absolute;inset:0;overflow:hidden;background:#0a1520}
 #map-img{position:absolute;image-rendering:pixelated;display:block;-webkit-user-drag:none;user-select:none;-webkit-user-select:none;pointer-events:none}
 #chunk-canvas{position:absolute;top:0;left:0;display:block;cursor:crosshair}
 #tap-mark,#jump-mark{position:absolute;transform:translate(-50%,-50%);pointer-events:none;display:none;z-index:10}
@@ -123,27 +94,6 @@ input[type=number]{background:#0a0d08;border:2px solid var(--panel-border);color
 <div id="header"><div class="logo">麺Earth</div><div id="hdr-info">マップをタップしてください</div></div>
 <div id="error-banner" class="error"></div>
 
-<!-- ══ デバッグパネル ══ -->
-<div id="dbg-panel">
-  <div id="dbg-toolbar">
-    <span class="dbg-title">🔧 DEBUG</span>
-    <button class="dbg-btn primary" onclick="dbgFetch()">① API取得</button>
-    <button class="dbg-btn info"    onclick="dbgParse()">② キーパース</button>
-    <button class="dbg-btn stone"   onclick="dbgDraw()">③ 描画テスト</button>
-    <button class="dbg-btn danger"  onclick="dbgClear()">ログ消去</button>
-    <button class="dbg-btn stone"   onclick="toggleRaw()">RAW表示</button>
-  </div>
-  <div id="dbg-status-row">
-    <span class="dbg-chip neutral" id="chip-api">API: 未実行</span>
-    <span class="dbg-chip neutral" id="chip-meta">meta: -</span>
-    <span class="dbg-chip neutral" id="chip-keys">キー数: -</span>
-    <span class="dbg-chip neutral" id="chip-parse">パース: -</span>
-    <span class="dbg-chip neutral" id="chip-draw">描画: -</span>
-  </div>
-  <div id="dbg-log"><div class="dbg-line dim"><span class="ts">--:--:--</span>① API取得 → ② キーパース → ③ 描画テスト の順に押してください</div></div>
-  <div id="dbg-raw-wrap"><pre id="dbg-raw"></pre></div>
-</div>
-
 <div id="stage">
   <div id="map-area">
     <img id="map-img" src="" alt="map" style="display:block">
@@ -214,295 +164,23 @@ input[type=number]{background:#0a0d08;border:2px solid var(--panel-border);color
 'use strict';
 
 // ══════════════════════════════════════════════════════════════════════════════
-// デバッグユーティリティ
-// ══════════════════════════════════════════════════════════════════════════════
-let _lastRawRes = null;
-
-function ts() {
-  const d = new Date();
-  return [d.getHours(),d.getMinutes(),d.getSeconds()].map(n=>String(n).padStart(2,'0')).join(':');
-}
-
-function dlog(msg, type='dim') {
-  const el = document.createElement('div');
-  el.className = `dbg-line ${type}`;
-  el.innerHTML = `<span class="ts">${ts()}</span>${msg}`;
-  const log = document.getElementById('dbg-log');
-  log.appendChild(el);
-  log.scrollTop = log.scrollHeight;
-  console.log(`[DBG][${type}] ${msg}`);
-}
-
-function setChip(id, text, cls) {
-  const el = document.getElementById(id);
-  el.textContent = text;
-  el.className = `dbg-chip ${cls}`;
-}
-
-function dbgClear() {
-  document.getElementById('dbg-log').innerHTML = '';
-  dlog('ログをクリアしました', 'dim');
-}
-
-function toggleRaw() {
-  const w = document.getElementById('dbg-raw-wrap');
-  w.style.display = (w.style.display === 'none' || !w.style.display) ? 'block' : 'none';
-}
-
-// ① API取得テスト
-async function dbgFetch() {
-  dlog('━━ ① /api/blocks を取得します ━━', 'info');
-  setChip('chip-api', 'API: 取得中...', 'warn');
-  try {
-    const t0 = Date.now();
-    const res = await fetch(WORKER_API + '/api/blocks');
-    const ms  = Date.now() - t0;
-    dlog(`HTTP ステータス: ${res.status} (${ms}ms)`, res.ok ? 'ok' : 'err');
-
-    if (!res.ok) {
-      setChip('chip-api', `API: HTTP ${res.status}`, 'err');
-      dlog(`エラー: HTTPステータス ${res.status}`, 'err');
-      return;
-    }
-
-    const text = await res.text();
-    dlog(`レスポンスサイズ: ${(text.length / 1024).toFixed(1)} KB`, 'info');
-
-    let json;
-    try {
-      json = JSON.parse(text);
-    } catch(e) {
-      setChip('chip-api', 'API: JSONパース失敗', 'err');
-      dlog(`JSONパース失敗: ${e.message}`, 'err');
-      dlog(`先頭200文字: ${text.slice(0,200)}`, 'warn');
-      return;
-    }
-
-    _lastRawRes = json;
-    document.getElementById('dbg-raw').textContent = JSON.stringify(json, null, 2).slice(0, 4000);
-
-    // meta 解析
-    const meta = json.meta || {};
-    dlog(`meta.scanning: ${meta.scanning ?? '(なし)'}`, meta.scanning ? 'warn' : 'ok');
-    dlog(`meta.scanProgress: ${meta.scanProgress ?? '(なし)'}`, 'info');
-    dlog(`meta.totalBlocks: ${meta.totalBlocks ?? '(なし)'}`, 'info');
-    dlog(`meta.lastScanned: ${meta.lastScanned ? new Date(meta.lastScanned).toLocaleString('ja-JP') : '(なし)'}`, 'info');
-    if (meta.scanBounds) {
-      const b = meta.scanBounds;
-      dlog(`meta.scanBounds: X[${b.x1}〜${b.x2}] Z[${b.z1}〜${b.z2}]`, 'info');
-    } else {
-      dlog('meta.scanBounds: なし（scanBoundsが未設定）', 'warn');
-    }
-
-    const metaStr = `scanning:${meta.scanning ?? '-'} prog:${meta.scanProgress ?? '-'}% blocks:${meta.totalBlocks ?? '-'}`;
-    setChip('chip-meta', `meta: ${metaStr}`, meta.scanning ? 'warn' : 'ok');
-
-    // data 解析
-    const data    = json.data || {};
-    const keys    = Object.keys(data);
-    const keyCount = keys.length;
-    dlog(`data キー数: ${keyCount}`, keyCount > 0 ? 'ok' : 'err');
-
-    if (keyCount === 0) {
-      setChip('chip-keys', 'キー数: 0 ❌', 'err');
-      dlog('▶ データが空です。原因を確認します…', 'warn');
-      dlog('  - Firebaseの /blocks/data.json が空', 'warn');
-      dlog('  - マイクラで /earth:rendering を実行していない', 'warn');
-      dlog('  - Workerが /blocks/data.json を正常に取得できていない', 'warn');
-
-      // Firebase直接テスト
-      dlog('Firebase直接アクセスをテストします…', 'info');
-      try {
-        const fbUrl = 'https://menearths4map-default-rtdb.asia-southeast1.firebasedatabase.app/blocks/data.json?shallow=true&limitToFirst=5';
-        const fbRes = await fetch(fbUrl);
-        const fbText = await fbRes.text();
-        dlog(`Firebase直接: HTTP ${fbRes.status} / ${fbText.length}B`, fbRes.ok ? 'ok' : 'err');
-        dlog(`Firebase先頭: ${fbText.slice(0, 200)}`, 'info');
-        if (fbText === 'null') {
-          dlog('▶ Firebaseに /blocks/data が存在しません → マイクラ側で未送信', 'err');
-        } else if (fbRes.ok && fbText !== 'null') {
-          dlog('▶ Firebaseにはデータあり → Workerの取得処理に問題がある可能性', 'warn');
-        }
-      } catch(fe) {
-        dlog(`Firebase直接アクセス失敗: ${fe.message}`, 'err');
-      }
-
-      setChip('chip-api', 'API: データなし', 'err');
-      return;
-    }
-
-    setChip('chip-keys', `キー数: ${keyCount}`, 'ok');
-    setChip('chip-api', `API: OK (${(text.length/1024).toFixed(0)}KB)`, 'ok');
-
-    // キーサンプルを表示
-    const sample = keys.slice(0, 10);
-    dlog(`キーサンプル (最初の10件):`, 'info');
-    for (const k of sample) {
-      const v = data[k];
-      dlog(`  "${k}" → id:"${v?.id ?? '?'}" y:${v?.y ?? '?'}`, 'dim');
-    }
-
-    // キーに負数が含まれるか確認
-    const negXKeys = keys.filter(k => k.startsWith('-'));
-    const negZKeys = keys.filter(k => { const u=k.indexOf('_'); return u>0 && k[u+1]==='-'; });
-    dlog(`X負のキー: ${negXKeys.length}件  Z負のキー: ${negZKeys.length}件`, 'info');
-    if (negXKeys.length) dlog(`X負サンプル: ${negXKeys.slice(0,3).join(', ')}`, 'dim');
-    if (negZKeys.length) dlog(`Z負サンプル: ${negZKeys.slice(0,3).join(', ')}`, 'dim');
-
-    dlog('✅ ② キーパース テストに進んでください', 'ok');
-  } catch(e) {
-    setChip('chip-api', 'API: 通信失敗', 'err');
-    dlog(`通信エラー: ${e.message}`, 'err');
-  }
-}
-
-// ② キーパーステスト
-function dbgParse() {
-  if (!_lastRawRes) { dlog('先に ① API取得 を実行してください', 'warn'); return; }
-  dlog('━━ ② キーパース テスト ━━', 'info');
-
-  const data  = _lastRawRes.data || {};
-  const keys  = Object.keys(data);
-  if (!keys.length) { dlog('データなし — パーステスト不可', 'err'); return; }
-
-  let ok=0, ng=0, oobCount=0;
-  const { x1, z1, x2, z2 } = MAP_BOUNDS;
-  const errors = [];
-
-  for (const key of keys) {
-    // パース（本番HTMLと同じロジック）
-    const negX = key.startsWith('-');
-    const rest = negX ? key.slice(1) : key;
-    const uIdx = rest.indexOf('_');
-    if (uIdx === -1) {
-      ng++;
-      if (errors.length < 5) errors.push(`アンダースコアなし: "${key}"`);
-      continue;
-    }
-    const bx = parseInt((negX ? '-' : '') + rest.slice(0, uIdx));
-    const bz = parseInt(rest.slice(uIdx + 1));
-
-    if (isNaN(bx) || isNaN(bz)) {
-      ng++;
-      if (errors.length < 5) errors.push(`NaN: "${key}" → bx=${bx} bz=${bz}`);
-      continue;
-    }
-
-    // MAP_BOUNDS範囲外チェック
-    if (bx < x1 || bx > x2 || bz < z1 || bz > z2) {
-      oobCount++;
-      if (oobCount <= 3) dlog(`範囲外: "${key}" → X:${bx} Z:${bz}`, 'warn');
-    }
-
-    ok++;
-  }
-
-  dlog(`パース結果: ✅OK ${ok}件  ❌NG ${ng}件  ⚠️範囲外 ${oobCount}件`, ok>0?'ok':'err');
-  if (errors.length) {
-    dlog('パース失敗サンプル:', 'err');
-    errors.forEach(e => dlog(`  ${e}`, 'err'));
-  }
-  if (oobCount > 0) {
-    dlog(`MAP_BOUNDS: X[${x1}〜${x2}] Z[${z1}〜${z2}]`, 'info');
-    dlog(`範囲外ブロックはマップに描画されません（データ自体は正常）`, 'warn');
-  }
-  if (ok > 0 && ng === 0) {
-    dlog('パースは全件正常 → ③ 描画テスト に進んでください', 'ok');
-  } else if (ok === 0) {
-    dlog('▶ 全件パース失敗 → キーフォーマットが想定と異なります', 'err');
-    dlog(`想定フォーマット: "X座標_Z座標"（例: "7152_-1820", "-9200_100"）`, 'info');
-  }
-
-  setChip('chip-parse', `パース: OK:${ok} NG:${ng} 外:${oobCount}`, ng>0?'err':(oobCount>ok/2?'warn':'ok'));
-}
-
-// ③ 描画テスト（小さなキャンバスで10×10ブロックだけ試す）
-function dbgDraw() {
-  if (!_lastRawRes) { dlog('先に ① API取得 を実行してください', 'warn'); return; }
-  dlog('━━ ③ 描画テスト ━━', 'info');
-
-  const data  = _lastRawRes.data || {};
-  const keys  = Object.keys(data);
-  if (!keys.length) { dlog('データなし — 描画不可', 'err'); return; }
-
-  // 最初の1000件だけ描画して確認
-  const testCount = Math.min(keys.length, 1000);
-  let drawn = 0, skipped = 0;
-
-  const { x1, z1, x2, z2 } = MAP_BOUNDS;
-  const rangeX = x2 - x1 + 1;
-  const rangeZ = z2 - z1 + 1;
-  const scale  = Math.min(1, 512 / Math.max(rangeX, rangeZ));
-  const cw     = Math.ceil(rangeX * scale);
-  const ch     = Math.ceil(rangeZ * scale);
-
-  // renderCanvas（既存要素）に描画
-  const cv  = document.getElementById('render-canvas');
-  cv.width  = cw;
-  cv.height = ch;
-  const ctx = cv.getContext('2d');
-  ctx.fillStyle = '#3c6fa8';
-  ctx.fillRect(0, 0, cw, ch);
-
-  const imageData = ctx.getImageData(0, 0, cw, ch);
-  const d = imageData.data;
-
-  for (let i = 0; i < testCount; i++) {
-    const key = keys[i];
-    const val = data[key];
-
-    const negX = key.startsWith('-');
-    const rest = negX ? key.slice(1) : key;
-    const uIdx = rest.indexOf('_');
-    if (uIdx === -1) { skipped++; continue; }
-    const bx = parseInt((negX ? '-' : '') + rest.slice(0, uIdx));
-    const bz = parseInt(rest.slice(uIdx + 1));
-    if (isNaN(bx) || isNaN(bz)) { skipped++; continue; }
-
-    const px = Math.floor((bx - x1) * scale);
-    const pz = Math.floor((bz - z1) * scale);
-    if (px < 0 || px >= cw || pz < 0 || pz >= ch) { skipped++; continue; }
-
-    const y      = val?.y ?? 64;
-    const bright = Math.min(1.1, Math.max(0.55, (y + 64) / 290));
-    const col    = blockColor(val?.id || 'minecraft:stone');
-    const hex    = col.startsWith('#') ? col.slice(1) : '808080';
-    const r      = parseInt(hex.slice(0,2),16);
-    const g      = parseInt(hex.slice(2,4),16);
-    const b      = parseInt(hex.slice(4,6),16);
-    const pi     = (pz * cw + px) * 4;
-    d[pi]   = Math.min(255, r * bright);
-    d[pi+1] = Math.min(255, g * bright);
-    d[pi+2] = Math.min(255, b * bright);
-    d[pi+3] = 255;
-    drawn++;
-  }
-
-  ctx.putImageData(imageData, 0, 0);
-
-  // 描画結果をmapImgに反映してマップ表示テスト
-  const dataUrl = cv.toDataURL('image/png');
-  mapImg.src = dataUrl;
-  mapImg.onload = () => { fitView(); drawChunks(); };
-
-  dlog(`描画テスト完了: 対象${testCount}件 / 描画${drawn}件 / スキップ${skipped}件`, drawn>0?'ok':'err');
-  dlog(`キャンバス: ${cw}×${ch}px  スケール: ${scale.toFixed(4)}`, 'info');
-
-  if (drawn === 0 && skipped === testCount) {
-    dlog('▶ 全件スキップ → マップ範囲外かパース失敗', 'err');
-  } else if (drawn > 0) {
-    dlog('▶ マップに反映しました。上の地図エリアを確認してください', 'ok');
-    dlog('▶ 正常に表示されていれば autoLoadBlockMap のロジックに絞り込み可能', 'ok');
-    setChip('chip-draw', `描画: ${drawn}/${testCount}件`, 'ok');
-  }
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
 // 設定
 // ══════════════════════════════════════════════════════════════════════════════
-const WORKER_API   = 'https://map.hp7vvyvc25.workers.dev';
-const MAP_BOUNDS   = {x1:-9215,z1:-4607,x2:9215,z2:4607};
-const IMG_W=1539,IMG_H=769,CHUNK_SIZE=16;
+const WORKER_API = 'https://map.hp7vvyvc25.workers.dev';
+const MAP_BOUNDS = { x1: -9215, z1: -4607, x2: 9215, z2: 4607 };
+const CHUNK_SIZE = 16;
+
+// ★ IMG_W/IMG_H は動的に更新する（let に変更）
+// MAP_BOUNDS の縦横比で初期化
+let IMG_W = MAP_BOUNDS.x2 - MAP_BOUNDS.x1; // 18430
+let IMG_H = MAP_BOUNDS.z2 - MAP_BOUNDS.z1; // 9214
+
+// ★ mapImgのMC座標上での表示オフセット（部分レンダリング対応）
+// デフォルトはMAP_BOUNDS全体
+let mapImgMcX1 = MAP_BOUNDS.x1;
+let mapImgMcZ1 = MAP_BOUNDS.z1;
+let mapImgMcX2 = MAP_BOUNDS.x2;
+let mapImgMcZ2 = MAP_BOUNDS.z2;
 
 const BLOCK_COLORS = {
   'minecraft:grass_block':'#5d8a2e','minecraft:dirt':'#8b5e3c','minecraft:stone':'#7a7a7a',
@@ -540,108 +218,793 @@ function blockColor(typeId) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// マップ表示（既存コードそのまま）
+// マップ表示
 // ══════════════════════════════════════════════════════════════════════════════
-const countryColors={};
-function getCountryColor(n){if(!countryColors[n]){const h=hueFromString(n);countryColors[n]=`hsl(${h},60%,45%)`}return countryColors[n]}
-function hueFromString(s){let h=0;for(let i=0;i<s.length;i++)h=(h+s.charCodeAt(i)*7)%360;return h}
+const countryColors = {};
+function getCountryColor(n) {
+  if (!countryColors[n]) { const h = hueFromString(n); countryColors[n] = `hsl(${h},60%,45%)`; }
+  return countryColors[n];
+}
+function hueFromString(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h + s.charCodeAt(i) * 7) % 360; return h; }
 
-const view={x:0,y:0,scale:1};
-const mapArea=document.getElementById('map-area'),mapImg=document.getElementById('map-img'),chunkCanvas=document.getElementById('chunk-canvas'),tapMark=document.getElementById('tap-mark'),jumpMark=document.getElementById('jump-mark'),tooltip=document.getElementById('tooltip'),countryPopup=document.getElementById('country-popup'),popupName=document.getElementById('popup-name'),popupCount=document.getElementById('popup-count'),hdrInfo=document.getElementById('hdr-info'),errorBanner=document.getElementById('error-banner');
+const view = { x: 0, y: 0, scale: 1 };
+const mapArea     = document.getElementById('map-area');
+const mapImg      = document.getElementById('map-img');
+const chunkCanvas = document.getElementById('chunk-canvas');
+const tapMark     = document.getElementById('tap-mark');
+const jumpMark    = document.getElementById('jump-mark');
+const tooltip     = document.getElementById('tooltip');
+const countryPopup = document.getElementById('country-popup');
+const popupName   = document.getElementById('popup-name');
+const popupCount  = document.getElementById('popup-count');
+const hdrInfo     = document.getElementById('hdr-info');
+const errorBanner = document.getElementById('error-banner');
 
-let errorTimer=null;
-function showError(msg){errorBanner.textContent=msg;errorBanner.classList.add('show');if(errorTimer)clearTimeout(errorTimer);errorTimer=setTimeout(()=>errorBanner.classList.remove('show'),5000)}
-function getPanelHeight(){return document.getElementById('panel').getBoundingClientRect().height||0}
-function fitView(){const r=mapArea.getBoundingClientRect();const ph=getPanelHeight();if(r.width<=0||r.height<=0)return;const ah=Math.max(r.height-ph,100);view.scale=Math.min(r.width/IMG_W,ah/IMG_H);view.x=(r.width-IMG_W*view.scale)/2;view.y=(ah-IMG_H*view.scale)/2;applyView()}
-function applyView(){mapImg.style.width=IMG_W*view.scale+'px';mapImg.style.height=IMG_H*view.scale+'px';mapImg.style.left=view.x+'px';mapImg.style.top=view.y+'px';const r=mapArea.getBoundingClientRect();chunkCanvas.width=r.width;chunkCanvas.height=r.height;updateAllMarkers();drawChunks()}
-function clampView(){const r=mapArea.getBoundingClientRect(),ph=getPanelHeight(),ah=Math.max(r.height-ph,100),cw=IMG_W*view.scale,ch=IMG_H*view.scale;if(cw<=r.width)view.x=(r.width-cw)/2;else view.x=Math.min(0,Math.max(r.width-cw,view.x));if(ch<=ah)view.y=(ah-ch)/2;else view.y=Math.min(0,Math.max(ah-ch,view.y))}
-function mcToPixel(x,z){return{x:view.x+(x-MAP_BOUNDS.x1)/(MAP_BOUNDS.x2-MAP_BOUNDS.x1)*IMG_W*view.scale,y:view.y+(z-MAP_BOUNDS.z1)/(MAP_BOUNDS.z2-MAP_BOUNDS.z1)*IMG_H*view.scale}}
-function pixelToMc(px,py){return{x:Math.round(MAP_BOUNDS.x1+(px-view.x)/(IMG_W*view.scale)*(MAP_BOUNDS.x2-MAP_BOUNDS.x1)),z:Math.round(MAP_BOUNDS.z1+(py-view.y)/(IMG_H*view.scale)*(MAP_BOUNDS.z2-MAP_BOUNDS.z1))}}
-function isInsideMapBounds(x,z){return x>=MAP_BOUNDS.x1&&x<=MAP_BOUNDS.x2&&z>=MAP_BOUNDS.z1&&z<=MAP_BOUNDS.z2}
-let allChunkData={};
-async function fetchChunkData(){try{const data=await fetch(WORKER_API+'/api/chunks').then(r=>r.json());allChunkData=data||{};renderCountryList();drawChunks();}catch(e){console.warn('チャンクデータ取得失敗:',e)}}
-function drawChunks(){const ctx=chunkCanvas.getContext('2d');ctx.clearRect(0,0,chunkCanvas.width,chunkCanvas.height);for(const n in allChunkData){const d=allChunkData[n];if(!d.chunks)continue;const c=getCountryColor(n);for(const chunk of d.chunks){const sx=chunk.cx*CHUNK_SIZE,sz=chunk.cz*CHUNK_SIZE,ex=sx+CHUNK_SIZE,ez=sz+CHUNK_SIZE;const p1=mcToPixel(sx,sz),p2=mcToPixel(ex,ez);const w=Math.abs(p2.x-p1.x),h=Math.abs(p2.y-p1.y);const px=Math.min(p1.x,p2.x),py=Math.min(p1.y,p2.y);ctx.fillStyle=c;ctx.globalAlpha=0.5;ctx.fillRect(px,py,w,h);ctx.strokeStyle=c;ctx.globalAlpha=0.8;ctx.lineWidth=2;ctx.strokeRect(px,py,w,h);}}}
-function pixelToChunk(px,py){const mc=pixelToMc(px,py);return{cx:Math.floor(mc.x/CHUNK_SIZE),cz:Math.floor(mc.z/CHUNK_SIZE)}}
-function getCountryAtPixel(px,py){const c=pixelToChunk(px,py);for(const n in allChunkData){const d=allChunkData[n];if(!d.chunks)continue;const f=d.chunks.find(ch=>ch.cx===c.cx&&ch.cz===c.cz);if(f)return{country:n,count:d.chunkCount}};}
-function showCountryPopup(px,py){const info=getCountryAtPixel(px,py);if(!info)return;popupName.textContent=info.country;popupCount.textContent='チャンク数: '+info.count;countryPopup.style.display='block';positionPopup(px,py)}
-function positionPopup(px,py){const cw=chunkCanvas.width;let x=px+12,y=py-70;if(x+160>cw)x=px-172;if(x<4)x=4;if(y<4)y=py+20;countryPopup.style.left=x+'px';countryPopup.style.top=y+'px'}
-document.getElementById('popup-close-btn').addEventListener('click',e=>{e.stopPropagation();countryPopup.style.display='none'});
-let currentJumpMc=null;
-function updateAllMarkers(){if(currentJumpMc&&jumpMark.style.display!=='none'){const p=mcToPixel(currentJumpMc.x,currentJumpMc.z);jumpMark.style.left=p.x+'px';jumpMark.style.top=p.y+'px'}updateLiveMarkerPositions()}
-let tooltipTimer=null;
-function onMapTap(cx,cy){const r=mapArea.getBoundingClientRect(),lx=cx-r.left,ly=cy-r.top;if(lx<view.x||lx>view.x+IMG_W*view.scale||ly<view.y||ly>view.y+IMG_H*view.scale)return;tapMark.style.display='block';tapMark.style.left=lx+'px';tapMark.style.top=ly+'px';const mc=pixelToMc(lx,ly);hdrInfo.textContent='X:'+mc.x+' Z:'+mc.z;tooltip.textContent='X:'+mc.x+' Z:'+mc.z;tooltip.style.display='block';let tx=lx+12,ty=ly-30;const rr=mapArea.getBoundingClientRect();if(tx+150>rr.width)tx=lx-160;if(ty<0)ty=ly+14;tooltip.style.left=tx+'px';tooltip.style.top=ty+'px';if(tooltipTimer)clearTimeout(tooltipTimer);tooltipTimer=setTimeout(()=>tooltip.style.display='none',2500);showCountryPopup(lx,ly)}
-function doJumpTo(){const x=parseFloat(document.getElementById('input-jx').value),z=parseFloat(document.getElementById('input-jz').value);if(isNaN(x)||isNaN(z)){showError('X座標とZ座標を数字で入力してください。');return}currentJumpMc={x,z};zoomToMcCoord(x,z,4);hdrInfo.textContent='X:'+x+' Z:'+z;jumpMark.style.display='block';const p=mcToPixel(x,z);jumpMark.style.left=p.x+'px';jumpMark.style.top=p.y+'px'}
-function zoomToMcCoord(x,z,target){const r=mapArea.getBoundingClientRect(),ph=getPanelHeight(),ah=Math.max(r.height-ph,100),min=Math.min(r.width/IMG_W,ah/IMG_H),ns=Math.min(Math.max(target,min),15),rx=(x-MAP_BOUNDS.x1)/(MAP_BOUNDS.x2-MAP_BOUNDS.x1),rz=(z-MAP_BOUNDS.z1)/(MAP_BOUNDS.z2-MAP_BOUNDS.z1);view.x=r.width/2-rx*IMG_W*ns;view.y=ah/2-rz*IMG_H*ns;view.scale=ns;clampView();applyView();setDetailExpanded(false,true)}
+let errorTimer = null;
+function showError(msg) {
+  errorBanner.textContent = msg;
+  errorBanner.classList.add('show');
+  if (errorTimer) clearTimeout(errorTimer);
+  errorTimer = setTimeout(() => errorBanner.classList.remove('show'), 5000);
+}
 
-const panelDetail=document.getElementById('panel-detail'),handleLabel=document.getElementById('handle-label'),panelHandle=document.getElementById('panel-handle');
-let detailExpanded=false;
-function detailMaxPx(){return Math.max(100,Math.round(document.getElementById('stage').getBoundingClientRect().height*.58))}
-function setDetailExpanded(exp,skipFitView){detailExpanded=exp;if(exp){panelDetail.style.maxHeight=detailMaxPx()+'px';panelDetail.classList.add('expanded');handleLabel.textContent='下にスワイプで閉じる'}else{panelDetail.style.maxHeight='0px';panelDetail.classList.remove('expanded');handleLabel.textContent='上にスワイプで一覧表示'}if(!skipFitView){requestAnimationFrame(()=>fitView());setTimeout(fitView,340)}}
-let hDragging=false,hMoved=false,hStartY=0,hStartH=0,hMaxPx=0;
-function hDragStart(y){const activeTab=document.querySelector('.tab-content.active');if(!activeTab||activeTab.id==='tab-jump'||activeTab.id==='tab-render')return;hDragging=true;hMoved=false;hStartY=y;hStartH=panelDetail.getBoundingClientRect().height;hMaxPx=detailMaxPx();panelDetail.style.transition='none';panelDetail.classList.add('expanded')}
-function hDragMove(y){if(!hDragging)return;const dy=hStartY-y;if(Math.abs(dy)>6)hMoved=true;panelDetail.style.maxHeight=Math.min(Math.max(hStartH+dy,0),hMaxPx)+'px';requestAnimationFrame(fitView)}
-function hDragEnd(){if(!hDragging)return;hDragging=false;panelDetail.style.transition='';if(!hMoved){setDetailExpanded(!detailExpanded);return}setDetailExpanded(panelDetail.getBoundingClientRect().height>hMaxPx*.3)}
-panelHandle.addEventListener('touchstart',e=>hDragStart(e.touches[0].clientY),{passive:true});
-panelHandle.addEventListener('touchmove',e=>{if(!hDragging)return;e.preventDefault();hDragMove(e.touches[0].clientY)},{passive:false});
-panelHandle.addEventListener('touchend',hDragEnd);panelHandle.addEventListener('touchcancel',hDragEnd);
-panelHandle.addEventListener('mousedown',e=>{hDragStart(e.clientY);const mm=e2=>hDragMove(e2.clientY),mu=()=>{hDragEnd();window.removeEventListener('mousemove',mm);window.removeEventListener('mouseup',mu)};window.addEventListener('mousemove',mm);window.addEventListener('mouseup',mu)});
-function switchTab(name){document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));document.getElementById('tab-'+name).classList.add('active');document.getElementById('live-player-list').style.display=(name==='live')?'flex':'none';document.getElementById('country-list-wrap').style.display=(name==='countries')?'flex':'none';document.getElementById('render-canvas-wrap').style.display=(name==='render')?'block':'none';if(name==='jump'||name==='render'){panelDetail.style.display=(name==='render')?'':'none';panelHandle.style.opacity='.4';handleLabel.textContent='';if(name==='render'){panelDetail.style.display='';panelHandle.style.opacity='1';setDetailExpanded(true)}else setDetailExpanded(false)}else{panelDetail.style.display='';panelHandle.style.opacity='1';requestAnimationFrame(fitView)}}
-document.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
-function renderCountryList(){const wrap=document.getElementById('country-list-wrap'),countEl=document.getElementById('countries-count');wrap.innerHTML='';const names=Object.keys(allChunkData).sort((a,b)=>(allChunkData[b].chunkCount||0)-(allChunkData[a].chunkCount||0));countEl.textContent='国: '+names.length+'か国';if(!names.length){const e=document.createElement('div');e.className='country-list-empty';e.textContent='データなし';wrap.appendChild(e);return}names.forEach(name=>{const data=allChunkData[name];const item=document.createElement('div');item.className='country-list-item';const cb=document.createElement('div');cb.className='country-color-block';cb.style.background=getCountryColor(name);const ne=document.createElement('div');ne.className='country-item-name';ne.textContent=name;const ci=document.createElement('div');ci.className='country-item-count';ci.textContent=(data.chunkCount||0)+'チャンク';item.append(cb,ne,ci);item.addEventListener('click',()=>{if(data.chunks&&data.chunks.length>0){const c=data.chunks[0];zoomToMcCoord(c.cx*CHUNK_SIZE+CHUNK_SIZE/2,c.cz*CHUNK_SIZE+CHUNK_SIZE/2,5)}});wrap.appendChild(item)});}
+function getPanelHeight() { return document.getElementById('panel').getBoundingClientRect().height || 0; }
 
-let pointers={},panActive=false,panLastX=0,panLastY=0,pinchActive=false,pinchDist=0,pinchMidX=0,pinchMidY=0,isTap=false,tapStartX=0,tapStartY=0,tapStartTime=0;
-function onTouchStart(e){if(e.target.closest('#zoom-controls')||e.target.closest('#panel'))return;e.preventDefault();for(const t of e.changedTouches)pointers[t.identifier]={x:t.clientX,y:t.clientY};const k=Object.keys(pointers);if(k.length===1){const p=pointers[k[0]];panActive=true;pinchActive=false;panLastX=p.x;panLastY=p.y;isTap=true;tapStartX=p.x;tapStartY=p.y;tapStartTime=Date.now()}else if(k.length===2){panActive=false;pinchActive=true;isTap=false;const a=pointers[k[0]],b=pointers[k[1]];pinchDist=Math.hypot(b.x-a.x,b.y-a.y);pinchMidX=(a.x+b.x)/2;pinchMidY=(a.y+b.y)/2}}
-function onTouchMove(e){if(e.target.closest('#panel'))return;e.preventDefault();for(const t of e.changedTouches)pointers[t.identifier]={x:t.clientX,y:t.clientY};const k=Object.keys(pointers);if(k.length===1&&panActive){const p=pointers[k[0]],dx=p.x-panLastX,dy=p.y-panLastY;if(Math.abs(dx)>3||Math.abs(dy)>3)isTap=false;view.x+=dx;view.y+=dy;panLastX=p.x;panLastY=p.y;clampView();applyView()}else if(k.length===2&&pinchActive){const a=pointers[k[0]],b=pointers[k[1]],dist=Math.hypot(b.x-a.x,b.y-a.y),mx=(a.x+b.x)/2,my=(a.y+b.y)/2,r=mapArea.getBoundingClientRect(),ph=getPanelHeight(),ah=Math.max(r.height-ph,100),min=Math.min(r.width/IMG_W,ah/IMG_H),ns=Math.min(Math.max(view.scale*dist/pinchDist,min),15),ox=pinchMidX-r.left,oy=pinchMidY-r.top;view.x=ox-(ox-view.x)*(ns/view.scale);view.y=oy-(oy-view.y)*(ns/view.scale);view.scale=ns;view.x+=mx-pinchMidX;view.y+=my-pinchMidY;pinchDist=dist;pinchMidX=mx;pinchMidY=my;clampView();applyView()}}
-function onTouchEnd(e){for(const t of e.changedTouches)delete pointers[t.identifier];const rem=Object.keys(pointers).length;if(rem===0){if(isTap&&Date.now()-tapStartTime<300)onMapTap(tapStartX,tapStartY);panActive=false;pinchActive=false;isTap=false}else if(rem===1){pinchActive=false;panActive=true;isTap=false;const p=pointers[Object.keys(pointers)[0]];panLastX=p.x;panLastY=p.y}}
-function onTouchCancel(e){for(const t of e.changedTouches)delete pointers[t.identifier];panActive=false;pinchActive=false;isTap=false}
-chunkCanvas.addEventListener('touchstart',onTouchStart,{passive:false});chunkCanvas.addEventListener('touchmove',onTouchMove,{passive:false});chunkCanvas.addEventListener('touchend',onTouchEnd,{passive:false});chunkCanvas.addEventListener('touchcancel',onTouchCancel,{passive:false});
-let mouseDragging=false,mouseLastX=0,mouseLastY=0,mouseMoved=false;
-chunkCanvas.addEventListener('click',e=>{if(e.target.closest('#zoom-controls')||e.target.closest('#panel'))return;if(mouseMoved){mouseMoved=false;return}const r=mapArea.getBoundingClientRect();onMapTap(e.clientX-r.left+r.left,e.clientY-r.top+r.top)});
-chunkCanvas.addEventListener('mousedown',e=>{if(e.target.closest('#zoom-controls')||e.target.closest('#panel'))return;mouseDragging=true;mouseMoved=false;mouseLastX=e.clientX;mouseLastY=e.clientY});
-window.addEventListener('mousemove',e=>{if(!mouseDragging)return;const dx=e.clientX-mouseLastX,dy=e.clientY-mouseLastY;if(Math.abs(dx)>3||Math.abs(dy)>3)mouseMoved=true;view.x+=dx;view.y+=dy;mouseLastX=e.clientX;mouseLastY=e.clientY;clampView();applyView()});
-window.addEventListener('mouseup',()=>mouseDragging=false);
-chunkCanvas.addEventListener('wheel',e=>{e.preventDefault();zoomAt(e.clientX,e.clientY,e.deltaY<0?1.15:1/1.15)},{passive:false});
-function zoomAt(cx,cy,f){const r=mapArea.getBoundingClientRect(),ph=getPanelHeight(),ah=Math.max(r.height-ph,100),min=Math.min(r.width/IMG_W,ah/IMG_H),ns=Math.min(Math.max(view.scale*f,min),15),ox=cx-r.left,oy=cy-r.top;view.x=ox-(ox-view.x)*(ns/view.scale);view.y=oy-(oy-view.y)*(ns/view.scale);view.scale=ns;clampView();applyView()}
-function zoomBy(f){const r=mapArea.getBoundingClientRect(),ph=getPanelHeight(),ah=Math.max(r.height-ph,100);zoomAt(r.left+r.width/2,r.top+ah/2,f)}
-function bindZoomBtn(el,f){let fired=false;const trigger=e=>{e.preventDefault();e.stopPropagation();if(fired)return;fired=true;zoomBy(f);setTimeout(()=>fired=false,150)};el.addEventListener('touchstart',trigger,{passive:false});el.addEventListener('mousedown',trigger);el.addEventListener('click',e=>{e.preventDefault();e.stopPropagation()})}
-bindZoomBtn(document.getElementById('zoom-in'),1.4);bindZoomBtn(document.getElementById('zoom-out'),1/1.4);
-document.getElementById('btn-jump').addEventListener('click',doJumpTo);
+// ★ fitView: IMG_W/IMG_H (=レンダリングされた矩形の論理サイズ) でフィット
+function fitView() {
+  const r = mapArea.getBoundingClientRect();
+  const ph = getPanelHeight();
+  if (r.width <= 0 || r.height <= 0) return;
+  const ah = Math.max(r.height - ph, 100);
+  view.scale = Math.min(r.width / IMG_W, ah / IMG_H);
+  view.x = (r.width - IMG_W * view.scale) / 2;
+  view.y = (ah - IMG_H * view.scale) / 2;
+  applyView();
+}
 
-async function api(path,options={}){const r=await fetch(WORKER_API+path,{...options,headers:{'Content-Type':'application/json',...(options.headers||{})}});const text=await r.text();let data=null;try{data=text?JSON.parse(text):null}catch{data=text}if(!r.ok)throw new Error(data&&data.error?data.error:`HTTP ${r.status}`);return data}
+function applyView() {
+  mapImg.style.width  = IMG_W * view.scale + 'px';
+  mapImg.style.height = IMG_H * view.scale + 'px';
+  mapImg.style.left   = view.x + 'px';
+  mapImg.style.top    = view.y + 'px';
+  const r = mapArea.getBoundingClientRect();
+  chunkCanvas.width  = r.width;
+  chunkCanvas.height = r.height;
+  updateAllMarkers();
+  drawChunks();
+}
 
-let liveActive=false,liveMarkers={},liveTimer=null;
-const liveToggleBtn=document.getElementById('btn-live-toggle'),liveStatusChip=document.getElementById('live-status'),liveCountChip=document.getElementById('live-count'),livePlayerListEl=document.getElementById('live-player-list');
-function upsertLiveMarker(id,x,z){let e=liveMarkers[id];if(!e){const el=document.createElement('div');el.className='player-mark live-mark';const lb=document.createElement('div');lb.className='label';lb.textContent=id;const ic=document.createElement('div');ic.className='icon';ic.style.background=`hsl(${hueFromString(id)},55%,40%)`;ic.textContent=id.charAt(0).toUpperCase();const ai=new Image();ai.alt=id;ai.onload=()=>{ic.textContent='';ic.appendChild(ai)};ai.src='https://crafatar.com/avatars/'+encodeURIComponent(id)+'?size=32&overlay';el.append(lb,ic);mapArea.appendChild(el);e={el};liveMarkers[id]=e}e.x=x;e.z=z;const p=mcToPixel(x,z);e.el.style.left=p.x+'px';e.el.style.top=p.y+'px'}
-function removeLiveMarker(id){const e=liveMarkers[id];if(!e)return;e.el.remove();delete liveMarkers[id]}
-function clearAllLiveMarkers(){Object.keys(liveMarkers).forEach(removeLiveMarker)}
-function updateLiveMarkerPositions(){Object.values(liveMarkers).forEach(e=>{const p=mcToPixel(e.x,e.z);e.el.style.left=p.x+'px';e.el.style.top=p.y+'px'})}
-function buildPlayerListItem(id,p){const item=document.createElement('div');item.className='live-list-item';const av=document.createElement('div');av.className='avatar';av.style.background=`hsl(${hueFromString(id)},55%,40%)`;av.textContent=id.charAt(0).toUpperCase();const ai=new Image();ai.alt=id;ai.onload=()=>{av.textContent='';av.appendChild(ai)};ai.src='https://crafatar.com/avatars/'+encodeURIComponent(id)+'?size=28&overlay';const info=document.createElement('div');info.className='info';const ne=document.createElement('div');ne.className='mcid';ne.textContent=id;const co=document.createElement('div');co.className='coords';co.textContent=`X: ${Math.round(p.x)}  Z: ${Math.round(p.z)}`;info.append(ne,co);item.append(av,info);item.addEventListener('click',()=>zoomToMcCoord(p.x,p.z,6));return item}
-function renderLivePlayerList(data){livePlayerListEl.innerHTML='';const ids=Object.keys(data||{}).filter(id=>data[id]&&typeof data[id].x==='number'&&typeof data[id].z==='number'&&isInsideMapBounds(data[id].x,data[id].z)).sort();if(!ids.length){const e=document.createElement('div');e.className='live-list-empty';e.textContent='オンラインのプレイヤーがいません';livePlayerListEl.appendChild(e)}else ids.forEach(id=>livePlayerListEl.appendChild(buildPlayerListItem(id,data[id])))}
-async function refreshLive(){try{const data=await api('/api/players');const seen={};Object.keys(data||{}).forEach(id=>{const p=data[id];if(!p||typeof p.x!=='number'||typeof p.z!=='number')return;seen[id]=true;if(isInsideMapBounds(p.x,p.z))upsertLiveMarker(id,p.x,p.z);else removeLiveMarker(id)});Object.keys(liveMarkers).forEach(id=>{if(!seen[id])removeLiveMarker(id)});renderLivePlayerList(data||{});liveStatusChip.textContent='接続中';liveCountChip.textContent='プレイヤー: '+Object.keys(seen).length+'人'}catch(e){liveStatusChip.textContent='接続エラー';showError('プレイヤー情報の取得に失敗: '+e.message)}}
-function startLive(){if(liveTimer)clearInterval(liveTimer);liveStatusChip.textContent='接続中...';refreshLive();liveTimer=setInterval(refreshLive,2000)}
-function stopLive(){if(liveTimer)clearInterval(liveTimer);liveTimer=null;clearAllLiveMarkers();livePlayerListEl.innerHTML='';liveStatusChip.textContent='未接続';liveCountChip.textContent='プレイヤー: 0人'}
-liveToggleBtn.addEventListener('click',()=>{liveActive=!liveActive;if(liveActive){liveToggleBtn.textContent='ライブ表示: ON';liveToggleBtn.classList.add('danger');startLive()}else{liveToggleBtn.textContent='ライブ表示: OFF';liveToggleBtn.classList.remove('danger');stopLive()}});
-document.getElementById('tab-btn-players').addEventListener('click',()=>{if(!liveActive){liveActive=true;liveToggleBtn.textContent='ライブ表示: ON';liveToggleBtn.classList.add('danger');startLive()}});
+function clampView() {
+  const r = mapArea.getBoundingClientRect();
+  const ph = getPanelHeight();
+  const ah = Math.max(r.height - ph, 100);
+  const cw = IMG_W * view.scale;
+  const ch = IMG_H * view.scale;
+  if (cw <= r.width)  view.x = (r.width - cw) / 2;
+  else view.x = Math.min(0, Math.max(r.width - cw, view.x));
+  if (ch <= ah)  view.y = (ah - ch) / 2;
+  else view.y = Math.min(0, Math.max(ah - ch, view.y));
+}
 
-const renderCanvas=document.getElementById('render-canvas'),renderWrap=document.getElementById('render-canvas-wrap'),renderStat=document.getElementById('render-stat'),renderProgress=document.getElementById('render-progress-bar'),btnRenderLoad=document.getElementById('btn-render-load'),btnRenderSave=document.getElementById('btn-render-save');
-let renderImageDataURL=null;
+// ★★ mcToPixel/pixelToMc は mapImgMc* の範囲をIMG_W/IMG_Hにマッピングする
+// これにより部分レンダリングでも座標が正しく対応する
+function mcToPixel(x, z) {
+  const mcRangeX = mapImgMcX2 - mapImgMcX1;
+  const mcRangeZ = mapImgMcZ2 - mapImgMcZ1;
+  return {
+    x: view.x + ((x - mapImgMcX1) / mcRangeX) * IMG_W * view.scale,
+    y: view.y + ((z - mapImgMcZ1) / mcRangeZ) * IMG_H * view.scale,
+  };
+}
 
-async function loadAndRender(){btnRenderLoad.disabled=true;btnRenderSave.disabled=true;renderStat.textContent='データ取得中...';renderProgress.style.width='0%';renderImageDataURL=null;let meta,rawData;try{const res=await api('/api/blocks');meta=res.meta||{};rawData=res.data||{}}catch(e){renderStat.textContent='取得失敗: '+e.message;btnRenderLoad.disabled=false;return}const entries=Object.entries(rawData);const total=entries.length;if(total===0){renderStat.textContent='データなし。マイクラで /earth:rendering を実行してください。';btnRenderLoad.disabled=false;return}renderStat.textContent=`描画中... (${total}ブロック)`;let minX=Infinity,maxX=-Infinity,minZ=Infinity,maxZ=-Infinity;if(meta.scanBounds){minX=meta.scanBounds.x1;maxX=meta.scanBounds.x2;minZ=meta.scanBounds.z1;maxZ=meta.scanBounds.z2}else{for(const[key]of entries){const parts=key.split('_');const x=parseInt(parts[0]),z=parseInt(parts[1]);if(!isNaN(x)&&!isNaN(z)){minX=Math.min(minX,x);maxX=Math.max(maxX,x);minZ=Math.min(minZ,z);maxZ=Math.max(maxZ,z)}}}const rangeX=maxX-minX+1;const rangeZ=maxZ-minZ+1;const MAX_PX=2048;const scale=Math.min(1,MAX_PX/Math.max(rangeX,rangeZ));const canvasW=Math.ceil(rangeX*scale);const canvasH=Math.ceil(rangeZ*scale);renderCanvas.width=canvasW;renderCanvas.height=canvasH;const ctx=renderCanvas.getContext('2d');ctx.fillStyle='#3c6fa8';ctx.fillRect(0,0,canvasW,canvasH);const BATCH=2000;for(let i=0;i<total;i+=BATCH){const end=Math.min(i+BATCH,total);for(let j=i;j<end;j++){const[key,val]=entries[j];const parts=key.split('_');const x=parseInt(parts[0]);const z=parseInt(parts[1]);if(isNaN(x)||isNaN(z))continue;const px=Math.floor((x-minX)*scale);const pz=Math.floor((z-minZ)*scale);const pw=Math.max(1,Math.ceil(scale));const y=val.y??64;const bright=Math.min(1,Math.max(0.5,(y+64)/320));const baseCol=blockColor(val.id||'minecraft:stone');ctx.fillStyle=applyBrightness(baseCol,bright);ctx.fillRect(px,pz,pw,pw)}renderProgress.style.width=Math.floor((end/total)*100)+'%';renderStat.textContent=`描画中... ${end}/${total}`;await new Promise(r=>setTimeout(r,0))}if(scale>=0.4){ctx.strokeStyle='rgba(0,0,0,0.15)';ctx.lineWidth=0.5;const chunkPx=16*scale;for(let x=0;x<canvasW;x+=chunkPx){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvasH);ctx.stroke()}for(let z=0;z<canvasH;z+=chunkPx){ctx.beginPath();ctx.moveTo(0,z);ctx.lineTo(canvasW,z);ctx.stroke()}}if(meta.lastScanned){const dt=new Date(meta.lastScanned).toLocaleString('ja-JP');ctx.fillStyle='rgba(0,0,0,0.55)';ctx.fillRect(0,canvasH-20,canvasW,20);ctx.fillStyle='#fff';ctx.font=`${Math.max(10,Math.floor(canvasH/60))}px monospace`;ctx.fillText(`撮影: ${dt}  ブロック数: ${total}`,6,canvasH-5)}renderProgress.style.width='100%';renderStat.textContent=`完了 — ${total}ブロック描画 (${canvasW}×${canvasH}px)`;renderImageDataURL=renderCanvas.toDataURL('image/png');btnRenderSave.disabled=false;btnRenderLoad.disabled=false}
-function applyBrightness(color,factor){let r,g,b;if(color.startsWith('#')){const hex=color.slice(1);r=parseInt(hex.slice(0,2),16);g=parseInt(hex.slice(2,4),16);b=parseInt(hex.slice(4,6),16)}else{const m=color.match(/\d+/g);[r,g,b]=m?m.map(Number):[128,128,128]}return `rgb(${Math.round(r*factor)},${Math.round(g*factor)},${Math.round(b*factor)})`}
-function saveRenderAsPng(){if(!renderImageDataURL)return;const now=new Date();const ts=`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;const link=document.createElement('a');link.download=`menearth_map_${ts}.png`;link.href=renderImageDataURL;link.click()}
-btnRenderLoad.addEventListener('click',loadAndRender);btnRenderSave.addEventListener('click',saveRenderAsPng);
+function pixelToMc(px, py) {
+  const mcRangeX = mapImgMcX2 - mapImgMcX1;
+  const mcRangeZ = mapImgMcZ2 - mapImgMcZ1;
+  return {
+    x: Math.round(mapImgMcX1 + ((px - view.x) / (IMG_W * view.scale)) * mcRangeX),
+    z: Math.round(mapImgMcZ1 + ((py - view.y) / (IMG_H * view.scale)) * mcRangeZ),
+  };
+}
 
-let lastAutoScanned=0;
-async function autoLoadBlockMap(){try{const res=await api('/api/blocks');const meta=res.meta||{};const rawData=res.data||{};const blockCount=Object.keys(rawData).length;if(meta.scanning){const pct=meta.scanProgress??0;hdrInfo.textContent=`スキャン進行中: ${pct}% (${blockCount.toLocaleString()}ブロック取得済み)`;if(blockCount===0)return}else if(blockCount===0){hdrInfo.textContent='ブロックデータ未生成 — マイクラで /earth:rendering を実行してください';return}const scanned=meta.lastScanned||0;if(!meta.scanning&&scanned&&scanned<=lastAutoScanned)return;if(!meta.scanning)lastAutoScanned=scanned;hdrInfo.textContent='マップ描画中...';const entries=Object.entries(rawData);const{x1,z1,x2,z2}=MAP_BOUNDS;const rangeX=x2-x1+1;const rangeZ=z2-z1+1;const MAX_PX=2048;const scale=Math.min(1,MAX_PX/Math.max(rangeX,rangeZ));const cw=Math.ceil(rangeX*scale);const ch=Math.ceil(rangeZ*scale);renderCanvas.width=cw;renderCanvas.height=ch;const ctx=renderCanvas.getContext('2d');ctx.fillStyle='#3c6fa8';ctx.fillRect(0,0,cw,ch);const imageData=ctx.getImageData(0,0,cw,ch);const d=imageData.data;for(const[key,val]of entries){const negX=key.startsWith('-');const rest=negX?key.slice(1):key;const uIdx=rest.indexOf('_');if(uIdx===-1)continue;const bx=parseInt((negX?'-':'')+rest.slice(0,uIdx));const bz=parseInt(rest.slice(uIdx+1));if(isNaN(bx)||isNaN(bz))continue;const px=Math.floor((bx-x1)*scale);const pz=Math.floor((bz-z1)*scale);if(px<0||px>=cw||pz<0||pz>=ch)continue;const y=val.y??64;const bright=Math.min(1.1,Math.max(0.55,(y+64)/290));const col=blockColor(val.id||'minecraft:stone');const hex=col.startsWith('#')?col.slice(1):'808080';const r=parseInt(hex.slice(0,2),16);const g=parseInt(hex.slice(2,4),16);const b=parseInt(hex.slice(4,6),16);const i=(pz*cw+px)*4;d[i]=Math.min(255,r*bright);d[i+1]=Math.min(255,g*bright);d[i+2]=Math.min(255,b*bright);d[i+3]=255}ctx.putImageData(imageData,0,0);const dataUrl=renderCanvas.toDataURL('image/png');mapImg.src=dataUrl;mapImg.onload=()=>{fitView();drawChunks()};if(meta.lastScanned){const dt=new Date(meta.lastScanned).toLocaleString('ja-JP');hdrInfo.textContent=`最終更新: ${dt}  (${entries.length.toLocaleString()}ブロック)`}renderStat.textContent=`自動描画済み — ${entries.length.toLocaleString()}ブロック`;renderImageDataURL=dataUrl;btnRenderSave.disabled=false}catch(e){hdrInfo.textContent='ブロックデータ取得失敗: '+e.message}}
+function isInsideMapBounds(x, z) {
+  return x >= MAP_BOUNDS.x1 && x <= MAP_BOUNDS.x2 && z >= MAP_BOUNDS.z1 && z <= MAP_BOUNDS.z2;
+}
 
-window.addEventListener('resize',fitView);
-window.addEventListener('load',()=>{
-  fitView();setTimeout(fitView,50);setTimeout(fitView,200);
-  fetchChunkData();setInterval(fetchChunkData,10000);
-  document.getElementById('live-player-list').style.display='flex';
-  document.getElementById('country-list-wrap').style.display='none';
-  document.getElementById('render-canvas-wrap').style.display='none';
-  autoLoadBlockMap();setInterval(autoLoadBlockMap,60000);
+// ── チャンク描画 ──────────────────────────────────────────────────────────────
+let allChunkData = {};
+async function fetchChunkData() {
+  try {
+    const data = await fetch(WORKER_API + '/api/chunks').then(r => r.json());
+    allChunkData = data || {};
+    renderCountryList();
+    drawChunks();
+  } catch (e) { console.warn('チャンクデータ取得失敗:', e); }
+}
+
+function drawChunks() {
+  const ctx = chunkCanvas.getContext('2d');
+  ctx.clearRect(0, 0, chunkCanvas.width, chunkCanvas.height);
+  for (const n in allChunkData) {
+    const d = allChunkData[n];
+    if (!d.chunks) continue;
+    const c = getCountryColor(n);
+    for (const chunk of d.chunks) {
+      const sx = chunk.cx * CHUNK_SIZE, sz = chunk.cz * CHUNK_SIZE;
+      const ex = sx + CHUNK_SIZE, ez = sz + CHUNK_SIZE;
+      const p1 = mcToPixel(sx, sz), p2 = mcToPixel(ex, ez);
+      const w = Math.abs(p2.x - p1.x), h = Math.abs(p2.y - p1.y);
+      const px = Math.min(p1.x, p2.x), py = Math.min(p1.y, p2.y);
+      ctx.fillStyle = c;
+      ctx.globalAlpha = 0.5;
+      ctx.fillRect(px, py, w, h);
+      ctx.strokeStyle = c;
+      ctx.globalAlpha = 0.8;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(px, py, w, h);
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+function pixelToChunk(px, py) {
+  const mc = pixelToMc(px, py);
+  return { cx: Math.floor(mc.x / CHUNK_SIZE), cz: Math.floor(mc.z / CHUNK_SIZE) };
+}
+
+function getCountryAtPixel(px, py) {
+  const c = pixelToChunk(px, py);
+  for (const n in allChunkData) {
+    const d = allChunkData[n];
+    if (!d.chunks) continue;
+    const f = d.chunks.find(ch => ch.cx === c.cx && ch.cz === c.cz);
+    if (f) return { country: n, count: d.chunkCount };
+  }
+}
+
+function showCountryPopup(px, py) {
+  const info = getCountryAtPixel(px, py);
+  if (!info) return;
+  popupName.textContent = info.country;
+  popupCount.textContent = 'チャンク数: ' + info.count;
+  countryPopup.style.display = 'block';
+  positionPopup(px, py);
+}
+
+function positionPopup(px, py) {
+  const cw = chunkCanvas.width;
+  let x = px + 12, y = py - 70;
+  if (x + 160 > cw) x = px - 172;
+  if (x < 4) x = 4;
+  if (y < 4) y = py + 20;
+  countryPopup.style.left = x + 'px';
+  countryPopup.style.top = y + 'px';
+}
+
+document.getElementById('popup-close-btn').addEventListener('click', e => {
+  e.stopPropagation();
+  countryPopup.style.display = 'none';
+});
+
+let currentJumpMc = null;
+function updateAllMarkers() {
+  if (currentJumpMc && jumpMark.style.display !== 'none') {
+    const p = mcToPixel(currentJumpMc.x, currentJumpMc.z);
+    jumpMark.style.left = p.x + 'px';
+    jumpMark.style.top  = p.y + 'px';
+  }
+  updateLiveMarkerPositions();
+}
+
+let tooltipTimer = null;
+function onMapTap(cx, cy) {
+  const r = mapArea.getBoundingClientRect();
+  const lx = cx - r.left, ly = cy - r.top;
+  const mapLeft = view.x, mapTop = view.y;
+  const mapRight = view.x + IMG_W * view.scale;
+  const mapBottom = view.y + IMG_H * view.scale;
+  if (lx < mapLeft || lx > mapRight || ly < mapTop || ly > mapBottom) return;
+  tapMark.style.display = 'block';
+  tapMark.style.left = lx + 'px';
+  tapMark.style.top  = ly + 'px';
+  const mc = pixelToMc(lx, ly);
+  hdrInfo.textContent = 'X:' + mc.x + ' Z:' + mc.z;
+  tooltip.textContent  = 'X:' + mc.x + ' Z:' + mc.z;
+  tooltip.style.display = 'block';
+  let tx = lx + 12, ty = ly - 30;
+  const rr = mapArea.getBoundingClientRect();
+  if (tx + 150 > rr.width) tx = lx - 160;
+  if (ty < 0) ty = ly + 14;
+  tooltip.style.left = tx + 'px';
+  tooltip.style.top  = ty + 'px';
+  if (tooltipTimer) clearTimeout(tooltipTimer);
+  tooltipTimer = setTimeout(() => tooltip.style.display = 'none', 2500);
+  showCountryPopup(lx, ly);
+}
+
+function doJumpTo() {
+  const x = parseFloat(document.getElementById('input-jx').value);
+  const z = parseFloat(document.getElementById('input-jz').value);
+  if (isNaN(x) || isNaN(z)) { showError('X座標とZ座標を数字で入力してください。'); return; }
+  currentJumpMc = { x, z };
+  zoomToMcCoord(x, z, 4);
+  hdrInfo.textContent = 'X:' + x + ' Z:' + z;
+  jumpMark.style.display = 'block';
+  const p = mcToPixel(x, z);
+  jumpMark.style.left = p.x + 'px';
+  jumpMark.style.top  = p.y + 'px';
+}
+
+function zoomToMcCoord(x, z, target) {
+  const r = mapArea.getBoundingClientRect();
+  const ph = getPanelHeight();
+  const ah = Math.max(r.height - ph, 100);
+  const min = Math.min(r.width / IMG_W, ah / IMG_H);
+  const ns = Math.min(Math.max(target, min), 15);
+  const mcRangeX = mapImgMcX2 - mapImgMcX1;
+  const mcRangeZ = mapImgMcZ2 - mapImgMcZ1;
+  const rx = (x - mapImgMcX1) / mcRangeX;
+  const rz = (z - mapImgMcZ1) / mcRangeZ;
+  view.x = r.width / 2 - rx * IMG_W * ns;
+  view.y = ah / 2 - rz * IMG_H * ns;
+  view.scale = ns;
+  clampView();
+  applyView();
+  setDetailExpanded(false, true);
+}
+
+// ── パネル操作 ────────────────────────────────────────────────────────────────
+const panelDetail  = document.getElementById('panel-detail');
+const handleLabel  = document.getElementById('handle-label');
+const panelHandle  = document.getElementById('panel-handle');
+let detailExpanded = false;
+
+function detailMaxPx() { return Math.max(100, Math.round(document.getElementById('stage').getBoundingClientRect().height * .58)); }
+
+function setDetailExpanded(exp, skipFitView) {
+  detailExpanded = exp;
+  if (exp) {
+    panelDetail.style.maxHeight = detailMaxPx() + 'px';
+    panelDetail.classList.add('expanded');
+    handleLabel.textContent = '下にスワイプで閉じる';
+  } else {
+    panelDetail.style.maxHeight = '0px';
+    panelDetail.classList.remove('expanded');
+    handleLabel.textContent = '上にスワイプで一覧表示';
+  }
+  if (!skipFitView) { requestAnimationFrame(() => fitView()); setTimeout(fitView, 340); }
+}
+
+let hDragging = false, hMoved = false, hStartY = 0, hStartH = 0, hMaxPx = 0;
+function hDragStart(y) {
+  const activeTab = document.querySelector('.tab-content.active');
+  if (!activeTab || activeTab.id === 'tab-jump' || activeTab.id === 'tab-render') return;
+  hDragging = true; hMoved = false; hStartY = y;
+  hStartH = panelDetail.getBoundingClientRect().height;
+  hMaxPx = detailMaxPx();
+  panelDetail.style.transition = 'none';
+  panelDetail.classList.add('expanded');
+}
+function hDragMove(y) {
+  if (!hDragging) return;
+  const dy = hStartY - y;
+  if (Math.abs(dy) > 6) hMoved = true;
+  panelDetail.style.maxHeight = Math.min(Math.max(hStartH + dy, 0), hMaxPx) + 'px';
+  requestAnimationFrame(fitView);
+}
+function hDragEnd() {
+  if (!hDragging) return;
+  hDragging = false;
+  panelDetail.style.transition = '';
+  if (!hMoved) { setDetailExpanded(!detailExpanded); return; }
+  setDetailExpanded(panelDetail.getBoundingClientRect().height > hMaxPx * .3);
+}
+panelHandle.addEventListener('touchstart', e => hDragStart(e.touches[0].clientY), { passive: true });
+panelHandle.addEventListener('touchmove', e => { if (!hDragging) return; e.preventDefault(); hDragMove(e.touches[0].clientY); }, { passive: false });
+panelHandle.addEventListener('touchend', hDragEnd);
+panelHandle.addEventListener('touchcancel', hDragEnd);
+panelHandle.addEventListener('mousedown', e => {
+  hDragStart(e.clientY);
+  const mm = e2 => hDragMove(e2.clientY);
+  const mu = () => { hDragEnd(); window.removeEventListener('mousemove', mm); window.removeEventListener('mouseup', mu); };
+  window.addEventListener('mousemove', mm);
+  window.addEventListener('mouseup', mu);
+});
+
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.getElementById('live-player-list').style.display = (name === 'live') ? 'flex' : 'none';
+  document.getElementById('country-list-wrap').style.display = (name === 'countries') ? 'flex' : 'none';
+  document.getElementById('render-canvas-wrap').style.display = (name === 'render') ? 'block' : 'none';
+  if (name === 'jump' || name === 'render') {
+    panelDetail.style.display = (name === 'render') ? '' : 'none';
+    panelHandle.style.opacity = '.4';
+    handleLabel.textContent = '';
+    if (name === 'render') { panelDetail.style.display = ''; panelHandle.style.opacity = '1'; setDetailExpanded(true); }
+    else setDetailExpanded(false);
+  } else {
+    panelDetail.style.display = '';
+    panelHandle.style.opacity = '1';
+    requestAnimationFrame(fitView);
+  }
+}
+document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+
+function renderCountryList() {
+  const wrap = document.getElementById('country-list-wrap');
+  const countEl = document.getElementById('countries-count');
+  wrap.innerHTML = '';
+  const names = Object.keys(allChunkData).sort((a, b) => (allChunkData[b].chunkCount || 0) - (allChunkData[a].chunkCount || 0));
+  countEl.textContent = '国: ' + names.length + 'か国';
+  if (!names.length) {
+    const e = document.createElement('div'); e.className = 'country-list-empty'; e.textContent = 'データなし'; wrap.appendChild(e); return;
+  }
+  names.forEach(name => {
+    const data = allChunkData[name];
+    const item = document.createElement('div'); item.className = 'country-list-item';
+    const cb = document.createElement('div'); cb.className = 'country-color-block'; cb.style.background = getCountryColor(name);
+    const ne = document.createElement('div'); ne.className = 'country-item-name'; ne.textContent = name;
+    const ci = document.createElement('div'); ci.className = 'country-item-count'; ci.textContent = (data.chunkCount || 0) + 'チャンク';
+    item.append(cb, ne, ci);
+    item.addEventListener('click', () => {
+      if (data.chunks && data.chunks.length > 0) {
+        const c = data.chunks[0];
+        zoomToMcCoord(c.cx * CHUNK_SIZE + CHUNK_SIZE / 2, c.cz * CHUNK_SIZE + CHUNK_SIZE / 2, 5);
+      }
+    });
+    wrap.appendChild(item);
+  });
+}
+
+// ── タッチ/マウス操作 ─────────────────────────────────────────────────────────
+let pointers = {}, panActive = false, panLastX = 0, panLastY = 0;
+let pinchActive = false, pinchDist = 0, pinchMidX = 0, pinchMidY = 0;
+let isTap = false, tapStartX = 0, tapStartY = 0, tapStartTime = 0;
+
+function onTouchStart(e) {
+  if (e.target.closest('#zoom-controls') || e.target.closest('#panel')) return;
+  e.preventDefault();
+  for (const t of e.changedTouches) pointers[t.identifier] = { x: t.clientX, y: t.clientY };
+  const k = Object.keys(pointers);
+  if (k.length === 1) {
+    const p = pointers[k[0]];
+    panActive = true; pinchActive = false;
+    panLastX = p.x; panLastY = p.y;
+    isTap = true; tapStartX = p.x; tapStartY = p.y; tapStartTime = Date.now();
+  } else if (k.length === 2) {
+    panActive = false; pinchActive = true; isTap = false;
+    const a = pointers[k[0]], b = pointers[k[1]];
+    pinchDist = Math.hypot(b.x - a.x, b.y - a.y);
+    pinchMidX = (a.x + b.x) / 2; pinchMidY = (a.y + b.y) / 2;
+  }
+}
+
+function onTouchMove(e) {
+  if (e.target.closest('#panel')) return;
+  e.preventDefault();
+  for (const t of e.changedTouches) pointers[t.identifier] = { x: t.clientX, y: t.clientY };
+  const k = Object.keys(pointers);
+  if (k.length === 1 && panActive) {
+    const p = pointers[k[0]], dx = p.x - panLastX, dy = p.y - panLastY;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) isTap = false;
+    view.x += dx; view.y += dy; panLastX = p.x; panLastY = p.y;
+    clampView(); applyView();
+  } else if (k.length === 2 && pinchActive) {
+    const a = pointers[k[0]], b = pointers[k[1]];
+    const dist = Math.hypot(b.x - a.x, b.y - a.y);
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    const r = mapArea.getBoundingClientRect();
+    const ph = getPanelHeight(), ah = Math.max(r.height - ph, 100);
+    const min = Math.min(r.width / IMG_W, ah / IMG_H);
+    const ns = Math.min(Math.max(view.scale * dist / pinchDist, min), 15);
+    const ox = pinchMidX - r.left, oy = pinchMidY - r.top;
+    view.x = ox - (ox - view.x) * (ns / view.scale);
+    view.y = oy - (oy - view.y) * (ns / view.scale);
+    view.scale = ns;
+    view.x += mx - pinchMidX; view.y += my - pinchMidY;
+    pinchDist = dist; pinchMidX = mx; pinchMidY = my;
+    clampView(); applyView();
+  }
+}
+
+function onTouchEnd(e) {
+  for (const t of e.changedTouches) delete pointers[t.identifier];
+  const rem = Object.keys(pointers).length;
+  if (rem === 0) {
+    if (isTap && Date.now() - tapStartTime < 300) onMapTap(tapStartX, tapStartY);
+    panActive = false; pinchActive = false; isTap = false;
+  } else if (rem === 1) {
+    pinchActive = false; panActive = true; isTap = false;
+    const p = pointers[Object.keys(pointers)[0]];
+    panLastX = p.x; panLastY = p.y;
+  }
+}
+function onTouchCancel(e) {
+  for (const t of e.changedTouches) delete pointers[t.identifier];
+  panActive = false; pinchActive = false; isTap = false;
+}
+
+chunkCanvas.addEventListener('touchstart', onTouchStart, { passive: false });
+chunkCanvas.addEventListener('touchmove',  onTouchMove,  { passive: false });
+chunkCanvas.addEventListener('touchend',   onTouchEnd,   { passive: false });
+chunkCanvas.addEventListener('touchcancel',onTouchCancel,{ passive: false });
+
+let mouseDragging = false, mouseLastX = 0, mouseLastY = 0, mouseMoved = false;
+chunkCanvas.addEventListener('click', e => {
+  if (e.target.closest('#zoom-controls') || e.target.closest('#panel')) return;
+  if (mouseMoved) { mouseMoved = false; return; }
+  const r = mapArea.getBoundingClientRect();
+  onMapTap(e.clientX - r.left + r.left, e.clientY - r.top + r.top);
+});
+chunkCanvas.addEventListener('mousedown', e => {
+  if (e.target.closest('#zoom-controls') || e.target.closest('#panel')) return;
+  mouseDragging = true; mouseMoved = false; mouseLastX = e.clientX; mouseLastY = e.clientY;
+});
+window.addEventListener('mousemove', e => {
+  if (!mouseDragging) return;
+  const dx = e.clientX - mouseLastX, dy = e.clientY - mouseLastY;
+  if (Math.abs(dx) > 3 || Math.abs(dy) > 3) mouseMoved = true;
+  view.x += dx; view.y += dy; mouseLastX = e.clientX; mouseLastY = e.clientY;
+  clampView(); applyView();
+});
+window.addEventListener('mouseup', () => mouseDragging = false);
+chunkCanvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.15 : 1 / 1.15);
+}, { passive: false });
+
+function zoomAt(cx, cy, f) {
+  const r = mapArea.getBoundingClientRect();
+  const ph = getPanelHeight(), ah = Math.max(r.height - ph, 100);
+  const min = Math.min(r.width / IMG_W, ah / IMG_H);
+  const ns = Math.min(Math.max(view.scale * f, min), 15);
+  const ox = cx - r.left, oy = cy - r.top;
+  view.x = ox - (ox - view.x) * (ns / view.scale);
+  view.y = oy - (oy - view.y) * (ns / view.scale);
+  view.scale = ns;
+  clampView(); applyView();
+}
+function zoomBy(f) {
+  const r = mapArea.getBoundingClientRect();
+  const ph = getPanelHeight(), ah = Math.max(r.height - ph, 100);
+  zoomAt(r.left + r.width / 2, r.top + ah / 2, f);
+}
+function bindZoomBtn(el, f) {
+  let fired = false;
+  const trigger = e => {
+    e.preventDefault(); e.stopPropagation();
+    if (fired) return; fired = true; zoomBy(f); setTimeout(() => fired = false, 150);
+  };
+  el.addEventListener('touchstart', trigger, { passive: false });
+  el.addEventListener('mousedown', trigger);
+  el.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); });
+}
+bindZoomBtn(document.getElementById('zoom-in'),  1.4);
+bindZoomBtn(document.getElementById('zoom-out'), 1 / 1.4);
+document.getElementById('btn-jump').addEventListener('click', doJumpTo);
+
+async function api(path, options = {}) {
+  const r = await fetch(WORKER_API + path, { ...options, headers: { 'Content-Type': 'application/json', ...(options.headers || {}) } });
+  const text = await r.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+  if (!r.ok) throw new Error(data && data.error ? data.error : `HTTP ${r.status}`);
+  return data;
+}
+
+// ── ライブプレイヤー ──────────────────────────────────────────────────────────
+let liveActive = false, liveMarkers = {}, liveTimer = null;
+const liveToggleBtn    = document.getElementById('btn-live-toggle');
+const liveStatusChip   = document.getElementById('live-status');
+const liveCountChip    = document.getElementById('live-count');
+const livePlayerListEl = document.getElementById('live-player-list');
+
+function upsertLiveMarker(id, x, z) {
+  let e = liveMarkers[id];
+  if (!e) {
+    const el = document.createElement('div'); el.className = 'player-mark live-mark';
+    const lb = document.createElement('div'); lb.className = 'label'; lb.textContent = id;
+    const ic = document.createElement('div'); ic.className = 'icon';
+    ic.style.background = `hsl(${hueFromString(id)},55%,40%)`; ic.textContent = id.charAt(0).toUpperCase();
+    const ai = new Image(); ai.alt = id;
+    ai.onload = () => { ic.textContent = ''; ic.appendChild(ai); };
+    ai.src = 'https://crafatar.com/avatars/' + encodeURIComponent(id) + '?size=32&overlay';
+    el.append(lb, ic);
+    mapArea.appendChild(el);
+    e = { el }; liveMarkers[id] = e;
+  }
+  e.x = x; e.z = z;
+  const p = mcToPixel(x, z);
+  e.el.style.left = p.x + 'px'; e.el.style.top = p.y + 'px';
+}
+function removeLiveMarker(id) { const e = liveMarkers[id]; if (!e) return; e.el.remove(); delete liveMarkers[id]; }
+function clearAllLiveMarkers() { Object.keys(liveMarkers).forEach(removeLiveMarker); }
+function updateLiveMarkerPositions() {
+  Object.values(liveMarkers).forEach(e => { const p = mcToPixel(e.x, e.z); e.el.style.left = p.x + 'px'; e.el.style.top = p.y + 'px'; });
+}
+
+function buildPlayerListItem(id, p) {
+  const item = document.createElement('div'); item.className = 'live-list-item';
+  const av = document.createElement('div'); av.className = 'avatar';
+  av.style.background = `hsl(${hueFromString(id)},55%,40%)`; av.textContent = id.charAt(0).toUpperCase();
+  const ai = new Image(); ai.alt = id;
+  ai.onload = () => { av.textContent = ''; av.appendChild(ai); };
+  ai.src = 'https://crafatar.com/avatars/' + encodeURIComponent(id) + '?size=28&overlay';
+  const info = document.createElement('div'); info.className = 'info';
+  const ne = document.createElement('div'); ne.className = 'mcid'; ne.textContent = id;
+  const co = document.createElement('div'); co.className = 'coords'; co.textContent = `X: ${Math.round(p.x)}  Z: ${Math.round(p.z)}`;
+  info.append(ne, co); item.append(av, info);
+  item.addEventListener('click', () => zoomToMcCoord(p.x, p.z, 6));
+  return item;
+}
+function renderLivePlayerList(data) {
+  livePlayerListEl.innerHTML = '';
+  const ids = Object.keys(data || {}).filter(id => data[id] && typeof data[id].x === 'number' && typeof data[id].z === 'number' && isInsideMapBounds(data[id].x, data[id].z)).sort();
+  if (!ids.length) {
+    const e = document.createElement('div'); e.className = 'live-list-empty'; e.textContent = 'オンラインのプレイヤーがいません'; livePlayerListEl.appendChild(e);
+  } else {
+    ids.forEach(id => livePlayerListEl.appendChild(buildPlayerListItem(id, data[id])));
+  }
+}
+async function refreshLive() {
+  try {
+    const data = await api('/api/players');
+    const seen = {};
+    Object.keys(data || {}).forEach(id => {
+      const p = data[id];
+      if (!p || typeof p.x !== 'number' || typeof p.z !== 'number') return;
+      seen[id] = true;
+      if (isInsideMapBounds(p.x, p.z)) upsertLiveMarker(id, p.x, p.z);
+      else removeLiveMarker(id);
+    });
+    Object.keys(liveMarkers).forEach(id => { if (!seen[id]) removeLiveMarker(id); });
+    renderLivePlayerList(data || {});
+    liveStatusChip.textContent = '接続中';
+    liveCountChip.textContent = 'プレイヤー: ' + Object.keys(seen).length + '人';
+  } catch (e) { liveStatusChip.textContent = '接続エラー'; showError('プレイヤー情報の取得に失敗: ' + e.message); }
+}
+function startLive() { if (liveTimer) clearInterval(liveTimer); liveStatusChip.textContent = '接続中...'; refreshLive(); liveTimer = setInterval(refreshLive, 2000); }
+function stopLive() { if (liveTimer) clearInterval(liveTimer); liveTimer = null; clearAllLiveMarkers(); livePlayerListEl.innerHTML = ''; liveStatusChip.textContent = '未接続'; liveCountChip.textContent = 'プレイヤー: 0人'; }
+liveToggleBtn.addEventListener('click', () => {
+  liveActive = !liveActive;
+  if (liveActive) { liveToggleBtn.textContent = 'ライブ表示: ON'; liveToggleBtn.classList.add('danger'); startLive(); }
+  else { liveToggleBtn.textContent = 'ライブ表示: OFF'; liveToggleBtn.classList.remove('danger'); stopLive(); }
+});
+document.getElementById('tab-btn-players').addEventListener('click', () => {
+  if (!liveActive) { liveActive = true; liveToggleBtn.textContent = 'ライブ表示: ON'; liveToggleBtn.classList.add('danger'); startLive(); }
+});
+
+// ── 描画タブ（手動） ──────────────────────────────────────────────────────────
+const renderCanvas   = document.getElementById('render-canvas');
+const renderWrap     = document.getElementById('render-canvas-wrap');
+const renderStat     = document.getElementById('render-stat');
+const renderProgress = document.getElementById('render-progress-bar');
+const btnRenderLoad  = document.getElementById('btn-render-load');
+const btnRenderSave  = document.getElementById('btn-render-save');
+let renderImageDataURL = null;
+
+async function loadAndRender() {
+  btnRenderLoad.disabled = true; btnRenderSave.disabled = true;
+  renderStat.textContent = 'データ取得中...'; renderProgress.style.width = '0%';
+  renderImageDataURL = null;
+  let meta, rawData;
+  try { const res = await api('/api/blocks'); meta = res.meta || {}; rawData = res.data || {}; }
+  catch (e) { renderStat.textContent = '取得失敗: ' + e.message; btnRenderLoad.disabled = false; return; }
+  const entries = Object.entries(rawData);
+  const total = entries.length;
+  if (total === 0) { renderStat.textContent = 'データなし。マイクラで /earth:rendering を実行してください。'; btnRenderLoad.disabled = false; return; }
+  renderStat.textContent = `描画中... (${total}ブロック)`;
+  // 実際のブロック範囲を計算（★ MAP_BOUNDS全体ではなく実データ範囲）
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  for (const [key] of entries) {
+    const negX = key.startsWith('-');
+    const rest = negX ? key.slice(1) : key;
+    const u = rest.indexOf('_'); if (u === -1) continue;
+    const x = parseInt((negX ? '-' : '') + rest.slice(0, u));
+    const z = parseInt(rest.slice(u + 1));
+    if (!isNaN(x) && !isNaN(z)) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z); }
+  }
+  const rangeX = maxX - minX + 1, rangeZ = maxZ - minZ + 1;
+  const MAX_PX = 2048;
+  const scale = Math.min(1, MAX_PX / Math.max(rangeX, rangeZ));
+  const canvasW = Math.ceil(rangeX * scale), canvasH = Math.ceil(rangeZ * scale);
+  renderCanvas.width = canvasW; renderCanvas.height = canvasH;
+  const ctx = renderCanvas.getContext('2d');
+  ctx.fillStyle = '#3c6fa8'; ctx.fillRect(0, 0, canvasW, canvasH);
+  const BATCH = 2000;
+  for (let i = 0; i < total; i += BATCH) {
+    const end = Math.min(i + BATCH, total);
+    for (let j = i; j < end; j++) {
+      const [key, val] = entries[j];
+      const negX = key.startsWith('-');
+      const rest = negX ? key.slice(1) : key;
+      const u = rest.indexOf('_'); if (u === -1) continue;
+      const x = parseInt((negX ? '-' : '') + rest.slice(0, u));
+      const z = parseInt(rest.slice(u + 1));
+      if (isNaN(x) || isNaN(z)) continue;
+      const px = Math.floor((x - minX) * scale), pz = Math.floor((z - minZ) * scale);
+      const pw = Math.max(1, Math.ceil(scale));
+      const y = val.y ?? 64;
+      const bright = Math.min(1, Math.max(0.5, (y + 64) / 320));
+      const baseCol = blockColor(val.id || 'minecraft:stone');
+      ctx.fillStyle = applyBrightness(baseCol, bright);
+      ctx.fillRect(px, pz, pw, pw);
+    }
+    renderProgress.style.width = Math.floor((end / total) * 100) + '%';
+    renderStat.textContent = `描画中... ${end}/${total}`;
+    await new Promise(r => setTimeout(r, 0));
+  }
+  renderProgress.style.width = '100%';
+  renderStat.textContent = `完了 — ${total}ブロック描画 (${canvasW}×${canvasH}px)`;
+  renderImageDataURL = renderCanvas.toDataURL('image/png');
+  btnRenderSave.disabled = false; btnRenderLoad.disabled = false;
+}
+
+function applyBrightness(color, factor) {
+  let r, g, b;
+  if (color.startsWith('#')) { const hex = color.slice(1); r = parseInt(hex.slice(0, 2), 16); g = parseInt(hex.slice(2, 4), 16); b = parseInt(hex.slice(4, 6), 16); }
+  else { const m = color.match(/\d+/g); [r, g, b] = m ? m.map(Number) : [128, 128, 128]; }
+  return `rgb(${Math.round(r * factor)},${Math.round(g * factor)},${Math.round(b * factor)})`;
+}
+function saveRenderAsPng() {
+  if (!renderImageDataURL) return;
+  const now = new Date();
+  const ts = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+  const link = document.createElement('a'); link.download = `menearth_map_${ts}.png`; link.href = renderImageDataURL; link.click();
+}
+btnRenderLoad.addEventListener('click', loadAndRender);
+btnRenderSave.addEventListener('click', saveRenderAsPng);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ★★ autoLoadBlockMap 全面修正
+// 変更点：
+//   1. スキャン済みブロックの実際のMC座標範囲(minX~maxX, minZ~maxZ)でキャンバスを作る
+//   2. キャンバスをMAP_BOUNDS全体ではなくその範囲だけに描画（青が出ない）
+//   3. mapImgMcX1/Z1/X2/Z2 と IMG_W/IMG_H を更新 → 座標変換が正しくなる
+//   4. 比率: 実データの縦横比でキャンバスを作るので枠もおかしくならない
+// ══════════════════════════════════════════════════════════════════════════════
+let lastAutoScanned = 0;
+const _autoCanvas = document.getElementById('render-canvas'); // 共用
+
+async function autoLoadBlockMap() {
+  try {
+    const res = await api('/api/blocks');
+    const meta = res.meta || {};
+    const rawData = res.data || {};
+    const blockCount = Object.keys(rawData).length;
+
+    if (meta.scanning) {
+      const pct = meta.scanProgress ?? 0;
+      hdrInfo.textContent = `スキャン進行中: ${pct}% (${blockCount.toLocaleString()}ブロック取得済み)`;
+      if (blockCount === 0) return;
+    } else if (blockCount === 0) {
+      hdrInfo.textContent = 'ブロックデータ未生成 — マイクラで /earth:rendering を実行してください';
+      return;
+    }
+
+    const scanned = meta.lastScanned || 0;
+    if (!meta.scanning && scanned && scanned <= lastAutoScanned) return;
+    if (!meta.scanning) lastAutoScanned = scanned;
+
+    hdrInfo.textContent = 'マップ描画中...';
+    const entries = Object.entries(rawData);
+
+    // ★ Step1: 実データのMC座標範囲を計算
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    for (const [key] of entries) {
+      const negX = key.startsWith('-');
+      const rest = negX ? key.slice(1) : key;
+      const uIdx = rest.indexOf('_');
+      if (uIdx === -1) continue;
+      const bx = parseInt((negX ? '-' : '') + rest.slice(0, uIdx));
+      const bz = parseInt(rest.slice(uIdx + 1));
+      if (isNaN(bx) || isNaN(bz)) continue;
+      if (bx < MAP_BOUNDS.x1 || bx > MAP_BOUNDS.x2 || bz < MAP_BOUNDS.z1 || bz > MAP_BOUNDS.z2) continue;
+      minX = Math.min(minX, bx); maxX = Math.max(maxX, bx);
+      minZ = Math.min(minZ, bz); maxZ = Math.max(maxZ, bz);
+    }
+
+    if (minX === Infinity) {
+      hdrInfo.textContent = 'マップ範囲内のブロックデータがありません';
+      return;
+    }
+
+    // ★ Step2: チャンク境界に合わせて少し広げる（見た目をきれいに）
+    const SNAP = CHUNK_SIZE;
+    minX = Math.floor(minX / SNAP) * SNAP;
+    minZ = Math.floor(minZ / SNAP) * SNAP;
+    maxX = Math.ceil((maxX + 1) / SNAP) * SNAP;
+    maxZ = Math.ceil((maxZ + 1) / SNAP) * SNAP;
+    // MAP_BOUNDS内にクランプ
+    minX = Math.max(minX, MAP_BOUNDS.x1); minZ = Math.max(minZ, MAP_BOUNDS.z1);
+    maxX = Math.min(maxX, MAP_BOUNDS.x2); maxZ = Math.min(maxZ, MAP_BOUNDS.z2);
+
+    const rangeX = maxX - minX;
+    const rangeZ = maxZ - minZ;
+    if (rangeX <= 0 || rangeZ <= 0) return;
+
+    // ★ Step3: キャンバスサイズ（実データ範囲の比率で）
+    const MAX_PX = 2048;
+    const scale = Math.min(1, MAX_PX / Math.max(rangeX, rangeZ));
+    const cw = Math.max(1, Math.ceil(rangeX * scale));
+    const ch = Math.max(1, Math.ceil(rangeZ * scale));
+
+    _autoCanvas.width  = cw;
+    _autoCanvas.height = ch;
+    const ctx = _autoCanvas.getContext('2d');
+
+    // 背景は透明（描画済みブロックのみ色付き）
+    ctx.clearRect(0, 0, cw, ch);
+
+    // ★ Step4: ブロックを描画（範囲内のみ）
+    const imageData = ctx.getImageData(0, 0, cw, ch);
+    const d = imageData.data;
+
+    for (const [key, val] of entries) {
+      const negX = key.startsWith('-');
+      const rest = negX ? key.slice(1) : key;
+      const uIdx = rest.indexOf('_');
+      if (uIdx === -1) continue;
+      const bx = parseInt((negX ? '-' : '') + rest.slice(0, uIdx));
+      const bz = parseInt(rest.slice(uIdx + 1));
+      if (isNaN(bx) || isNaN(bz)) continue;
+      if (bx < minX || bx > maxX || bz < minZ || bz > maxZ) continue;
+
+      const px = Math.floor((bx - minX) * scale);
+      const pz = Math.floor((bz - minZ) * scale);
+      if (px < 0 || px >= cw || pz < 0 || pz >= ch) continue;
+
+      const y      = val?.y ?? 64;
+      const bright = Math.min(1.1, Math.max(0.55, (y + 64) / 290));
+      const col    = blockColor(val?.id || 'minecraft:stone');
+      const hex    = col.startsWith('#') ? col.slice(1) : '808080';
+      const r      = parseInt(hex.slice(0, 2), 16);
+      const g      = parseInt(hex.slice(2, 4), 16);
+      const b      = parseInt(hex.slice(4, 6), 16);
+      const pi     = (pz * cw + px) * 4;
+      d[pi]   = Math.min(255, r * bright);
+      d[pi+1] = Math.min(255, g * bright);
+      d[pi+2] = Math.min(255, b * bright);
+      d[pi+3] = 255;
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+
+    // ★ Step5: mapImgのMC範囲とIMG_W/IMG_Hを更新
+    mapImgMcX1 = minX; mapImgMcZ1 = minZ;
+    mapImgMcX2 = maxX; mapImgMcZ2 = maxZ;
+    IMG_W = cw;
+    IMG_H = ch;
+
+    // ★ Step6: mapImgに反映
+    const dataUrl = _autoCanvas.toDataURL('image/png');
+    renderImageDataURL = dataUrl;
+    btnRenderSave.disabled = false;
+
+    mapImg.src = dataUrl;
+    mapImg.onload = () => { fitView(); drawChunks(); };
+
+    if (meta.lastScanned) {
+      const dt = new Date(meta.lastScanned).toLocaleString('ja-JP');
+      hdrInfo.textContent = `最終更新: ${dt}  (${entries.length.toLocaleString()}ブロック)  X[${minX}〜${maxX}] Z[${minZ}〜${maxZ}]`;
+    }
+    renderStat.textContent = `自動描画済み — ${entries.length.toLocaleString()}ブロック (${cw}×${ch}px)`;
+
+  } catch (e) {
+    hdrInfo.textContent = 'ブロックデータ取得失敗: ' + e.message;
+  }
+}
+
+// ── 初期化 ────────────────────────────────────────────────────────────────────
+window.addEventListener('resize', fitView);
+window.addEventListener('load', () => {
+  fitView(); setTimeout(fitView, 50); setTimeout(fitView, 200);
+  fetchChunkData(); setInterval(fetchChunkData, 10000);
+  document.getElementById('live-player-list').style.display = 'flex';
+  document.getElementById('country-list-wrap').style.display = 'none';
+  document.getElementById('render-canvas-wrap').style.display = 'none';
+  autoLoadBlockMap(); setInterval(autoLoadBlockMap, 60000);
 });
 </script>
 </body>
