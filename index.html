@@ -876,7 +876,7 @@ async function loadAndRender() {
       const px0 = (cx - minCX) * chunkPx;
       const pz0 = (cz - minCZ) * chunkPx;
 
-      // ★ 水判定: Y62以下 or 水系ブロック → 青色固定
+      // ★ 水判定: 水系ブロックIDのみ → 青色固定
       let r, g, b;
       if (isWaterChunk(val)) {
         r = 0x3c; g = 0x6f; b = 0xa8;
@@ -949,19 +949,13 @@ function makeChunkHash(chunkMap) {
   return h;
 }
 
-// ★ 水判定（Y62以下 or 水系ブロック）
+// ★ 水判定（水系ブロックIDのみ）
 function isWaterChunk(val) {
   if (!val) return true;
   const id = val.id || '';
-  const y  = val.y ?? 64;
-  const isWaterBlock = id === 'minecraft:water' || id === 'minecraft:kelp' ||
+  return id === 'minecraft:water' || id === 'minecraft:kelp' ||
     id === 'minecraft:seagrass' || id === 'minecraft:tall_seagrass' ||
     id === 'minecraft:bubble_column';
-  // Y62以下で水系でも非水系でも → 水として扱う（地面が水に埋もれている）
-  // Y62より上に何もなければ → firebase_sync.js側でwaterに変換済みのはずだが、念のためHTML側でも
-  if (y <= 62 && !isWaterBlock) return true; // 水の下の地面 → 青
-  if (isWaterBlock) return true;
-  return false;
 }
 
 async function autoLoadBlockMap() {
@@ -1066,7 +1060,7 @@ async function autoLoadBlockMap() {
       const px0 = (cx - minCX) * chunkPx;
       const pz0 = (cz - minCZ) * chunkPx;
 
-      // ★ 水判定: Y62以下 or 水系ブロック → 青色固定
+      // ★ 水判定: 水系ブロックIDのみ → 青色固定
       let r, g, b;
       if (isWaterChunk(val)) {
         r = 0x3c; g = 0x6f; b = 0xa8;
