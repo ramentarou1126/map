@@ -167,7 +167,18 @@ input[type=number]{background:#0a0d08;border:2px solid var(--panel-border);color
 <script>
 'use strict';
 
-const WORKER_API = 'https://map.hp7vvyvc25.workers.dev';
+// ══════════════════════════════════════════════════════════════════════════════
+// Firebase設定 — Workerを廃止してFirebaseに直接アクセス
+// ══════════════════════════════════════════════════════════════════════════════
+const FIREBASE_URL = 'https://menearths4map-default-rtdb.asia-southeast1.firebasedatabase.app';
+
+// FirebaseのREST APIで取得する関数
+async function fbGet(path) {
+  const res = await fetch(`${FIREBASE_URL}${path}.json`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
 const MAP_BOUNDS = { x1: -9215, z1: -4607, x2: 9215, z2: 4607 };
 const CHUNK_SIZE = 16;
 
@@ -264,15 +275,12 @@ function applyView() {
   const imgMcH = mapImgMcZ2 - mapImgMcZ1;
   const imgPxW = imgMcW * view.scale;
   const imgPxH = imgMcH * view.scale;
-
   const imgLeft = view.x + (mapImgMcX1 - MAP_BOUNDS.x1) * view.scale;
   const imgTop  = view.y + (mapImgMcZ1 - MAP_BOUNDS.z1) * view.scale;
-
   mapImg.style.width  = imgPxW + 'px';
   mapImg.style.height = imgPxH + 'px';
   mapImg.style.left   = imgLeft + 'px';
   mapImg.style.top    = imgTop  + 'px';
-
   const r = mapArea.getBoundingClientRect();
   chunkCanvas.width  = r.width;
   chunkCanvas.height = r.height;
@@ -293,55 +301,46 @@ function clampView() {
 }
 
 function mcToPixel(x, z) {
-  return {
-    x: view.x + (x - MAP_BOUNDS.x1) * view.scale,
-    y: view.y + (z - MAP_BOUNDS.z1) * view.scale,
-  };
+  return { x: view.x + (x - MAP_BOUNDS.x1) * view.scale, y: view.y + (z - MAP_BOUNDS.z1) * view.scale };
 }
-
 function pixelToMc(px, py) {
-  return {
-    x: Math.round(MAP_BOUNDS.x1 + (px - view.x) / view.scale),
-    z: Math.round(MAP_BOUNDS.z1 + (py - view.y) / view.scale),
-  };
+  return { x: Math.round(MAP_BOUNDS.x1 + (px - view.x) / view.scale), z: Math.round(MAP_BOUNDS.z1 + (py - view.y) / view.scale) };
 }
-
 function isInsideMapBounds(x, z) {
   return x >= MAP_BOUNDS.x1 && x <= MAP_BOUNDS.x2 && z >= MAP_BOUNDS.z1 && z <= MAP_BOUNDS.z2;
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// チャンクデータ（Firebase直接）
+// ══════════════════════════════════════════════════════════════════════════════
 let allChunkData = {};
 let _lastChunkDataStr = '';
 async function fetchChunkData() {
   try {
-    const data = await fetch(WORKER_API + '/api/chunks').then(r => r.json());
+    const data = await fbGet('/chunks');
     const newStr = JSON.stringify(data || {});
-    const changed = newStr !== _lastChunkDataStr;
-    allChunkData = data || {};
-    if (changed) {
+    if (newStr !== _lastChunkDataStr) {
       _lastChunkDataStr = newStr;
+      allChunkData = data || {};
       renderCountryList();
       drawChunks();
     }
   } catch (e) { console.warn('チャンクデータ取得失敗:', e); }
 }
 
-// ★ 国境表示フラグ（デフォルトON）
 let showBorders = true;
-
 const borderToggleBtn = document.getElementById('border-toggle-btn');
-borderToggleBtn.classList.add('active'); // デフォルトON
+borderToggleBtn.classList.add('active');
 borderToggleBtn.addEventListener('click', () => {
   showBorders = !showBorders;
   borderToggleBtn.classList.toggle('active', showBorders);
-  borderToggleBtn.title = showBorders ? '国境オン/オフ (現在: ON)' : '国境オン/オフ (現在: OFF)';
   drawChunks();
 });
 
 function drawChunks() {
   const ctx = chunkCanvas.getContext('2d');
   ctx.clearRect(0, 0, chunkCanvas.width, chunkCanvas.height);
-  if (!showBorders) return; // ★ OFFなら何も描かない
+  if (!showBorders) return;
   for (const n in allChunkData) {
     const d = allChunkData[n];
     if (!d.chunks) continue;
@@ -352,13 +351,8 @@ function drawChunks() {
       const p1 = mcToPixel(sx, sz), p2 = mcToPixel(ex, ez);
       const w = Math.abs(p2.x - p1.x), h = Math.abs(p2.y - p1.y);
       const px = Math.min(p1.x, p2.x), py = Math.min(p1.y, p2.y);
-      ctx.fillStyle = c;
-      ctx.globalAlpha = 0.5;
-      ctx.fillRect(px, py, w, h);
-      ctx.strokeStyle = c;
-      ctx.globalAlpha = 0.8;
-      ctx.lineWidth = 2;
-      ctx.strokeRect(px, py, w, h);
+      ctx.fillStyle = c; ctx.globalAlpha = 0.5; ctx.fillRect(px, py, w, h);
+      ctx.strokeStyle = c; ctx.globalAlpha = 0.8; ctx.lineWidth = 2; ctx.strokeRect(px, py, w, h);
     }
   }
   ctx.globalAlpha = 1;
@@ -368,7 +362,6 @@ function pixelToChunk(px, py) {
   const mc = pixelToMc(px, py);
   return { cx: Math.floor(mc.x / CHUNK_SIZE), cz: Math.floor(mc.z / CHUNK_SIZE) };
 }
-
 function getCountryAtPixel(px, py) {
   const c = pixelToChunk(px, py);
   for (const n in allChunkData) {
@@ -378,7 +371,6 @@ function getCountryAtPixel(px, py) {
     if (f) return { country: n, count: d.chunkCount };
   }
 }
-
 function showCountryPopup(px, py) {
   const info = getCountryAtPixel(px, py);
   if (!info) return;
@@ -387,7 +379,6 @@ function showCountryPopup(px, py) {
   countryPopup.style.display = 'block';
   positionPopup(px, py);
 }
-
 function positionPopup(px, py) {
   const cw = chunkCanvas.width;
   let x = px + 12, y = py - 70;
@@ -397,18 +388,15 @@ function positionPopup(px, py) {
   countryPopup.style.left = x + 'px';
   countryPopup.style.top = y + 'px';
 }
-
 document.getElementById('popup-close-btn').addEventListener('click', e => {
-  e.stopPropagation();
-  countryPopup.style.display = 'none';
+  e.stopPropagation(); countryPopup.style.display = 'none';
 });
 
 let currentJumpMc = null;
 function updateAllMarkers() {
   if (currentJumpMc && jumpMark.style.display !== 'none') {
     const p = mcToPixel(currentJumpMc.x, currentJumpMc.z);
-    jumpMark.style.left = p.x + 'px';
-    jumpMark.style.top  = p.y + 'px';
+    jumpMark.style.left = p.x + 'px'; jumpMark.style.top = p.y + 'px';
   }
   updateLiveMarkerPositions();
 }
@@ -417,24 +405,18 @@ let tooltipTimer = null;
 function onMapTap(cx, cy) {
   const r = mapArea.getBoundingClientRect();
   const lx = cx - r.left, ly = cy - r.top;
-  const mapLeft   = view.x;
-  const mapTop    = view.y;
-  const mapRight  = view.x + FULL_MC_W * view.scale;
-  const mapBottom = view.y + FULL_MC_H * view.scale;
+  const mapLeft = view.x, mapTop = view.y;
+  const mapRight = view.x + FULL_MC_W * view.scale, mapBottom = view.y + FULL_MC_H * view.scale;
   if (lx < mapLeft || lx > mapRight || ly < mapTop || ly > mapBottom) return;
-  tapMark.style.display = 'block';
-  tapMark.style.left = lx + 'px';
-  tapMark.style.top  = ly + 'px';
+  tapMark.style.display = 'block'; tapMark.style.left = lx + 'px'; tapMark.style.top = ly + 'px';
   const mc = pixelToMc(lx, ly);
   hdrInfo.textContent = 'X:' + mc.x + ' Z:' + mc.z;
-  tooltip.textContent  = 'X:' + mc.x + ' Z:' + mc.z;
-  tooltip.style.display = 'block';
+  tooltip.textContent = 'X:' + mc.x + ' Z:' + mc.z; tooltip.style.display = 'block';
   let tx = lx + 12, ty = ly - 30;
   const rr = mapArea.getBoundingClientRect();
   if (tx + 150 > rr.width) tx = lx - 160;
   if (ty < 0) ty = ly + 14;
-  tooltip.style.left = tx + 'px';
-  tooltip.style.top  = ty + 'px';
+  tooltip.style.left = tx + 'px'; tooltip.style.top = ty + 'px';
   if (tooltipTimer) clearTimeout(tooltipTimer);
   tooltipTimer = setTimeout(() => tooltip.style.display = 'none', 2500);
   showCountryPopup(lx, ly);
@@ -449,42 +431,29 @@ function doJumpTo() {
   hdrInfo.textContent = 'X:' + x + ' Z:' + z;
   jumpMark.style.display = 'block';
   const p = mcToPixel(x, z);
-  jumpMark.style.left = p.x + 'px';
-  jumpMark.style.top  = p.y + 'px';
+  jumpMark.style.left = p.x + 'px'; jumpMark.style.top = p.y + 'px';
 }
 
 function zoomToMcCoord(x, z, target) {
   const r = mapArea.getBoundingClientRect();
-  const ph = getPanelHeight();
-  const ah = Math.max(r.height - ph, 100);
+  const ph = getPanelHeight(), ah = Math.max(r.height - ph, 100);
   const min = Math.min(r.width / FULL_MC_W, ah / FULL_MC_H);
   const ns = Math.min(Math.max(target, min), 15);
-  view.x = r.width  / 2 - (x - MAP_BOUNDS.x1) * ns;
-  view.y = ah / 2       - (z - MAP_BOUNDS.z1) * ns;
-  view.scale = ns;
-  clampView();
-  applyView();
-  setDetailExpanded(false, true);
+  view.x = r.width / 2 - (x - MAP_BOUNDS.x1) * ns;
+  view.y = ah / 2 - (z - MAP_BOUNDS.z1) * ns;
+  view.scale = ns; clampView(); applyView(); setDetailExpanded(false, true);
 }
 
-const panelDetail  = document.getElementById('panel-detail');
-const handleLabel  = document.getElementById('handle-label');
-const panelHandle  = document.getElementById('panel-handle');
+const panelDetail = document.getElementById('panel-detail');
+const handleLabel = document.getElementById('handle-label');
+const panelHandle = document.getElementById('panel-handle');
 let detailExpanded = false;
 
 function detailMaxPx() { return Math.max(100, Math.round(document.getElementById('stage').getBoundingClientRect().height * .58)); }
-
 function setDetailExpanded(exp, skipFitView) {
   detailExpanded = exp;
-  if (exp) {
-    panelDetail.style.maxHeight = detailMaxPx() + 'px';
-    panelDetail.classList.add('expanded');
-    handleLabel.textContent = '下にスワイプで閉じる';
-  } else {
-    panelDetail.style.maxHeight = '0px';
-    panelDetail.classList.remove('expanded');
-    handleLabel.textContent = '上にスワイプで一覧表示';
-  }
+  if (exp) { panelDetail.style.maxHeight = detailMaxPx() + 'px'; panelDetail.classList.add('expanded'); handleLabel.textContent = '下にスワイプで閉じる'; }
+  else { panelDetail.style.maxHeight = '0px'; panelDetail.classList.remove('expanded'); handleLabel.textContent = '上にスワイプで一覧表示'; }
   if (!skipFitView) { requestAnimationFrame(() => fitView()); setTimeout(fitView, 340); }
 }
 
@@ -493,10 +462,8 @@ function hDragStart(y) {
   const activeTab = document.querySelector('.tab-content.active');
   if (!activeTab || activeTab.id === 'tab-jump' || activeTab.id === 'tab-render') return;
   hDragging = true; hMoved = false; hStartY = y;
-  hStartH = panelDetail.getBoundingClientRect().height;
-  hMaxPx = detailMaxPx();
-  panelDetail.style.transition = 'none';
-  panelDetail.classList.add('expanded');
+  hStartH = panelDetail.getBoundingClientRect().height; hMaxPx = detailMaxPx();
+  panelDetail.style.transition = 'none'; panelDetail.classList.add('expanded');
 }
 function hDragMove(y) {
   if (!hDragging) return;
@@ -506,9 +473,7 @@ function hDragMove(y) {
   requestAnimationFrame(fitView);
 }
 function hDragEnd() {
-  if (!hDragging) return;
-  hDragging = false;
-  panelDetail.style.transition = '';
+  if (!hDragging) return; hDragging = false; panelDetail.style.transition = '';
   if (!hMoved) { setDetailExpanded(!detailExpanded); return; }
   setDetailExpanded(panelDetail.getBoundingClientRect().height > hMaxPx * .3);
 }
@@ -520,8 +485,7 @@ panelHandle.addEventListener('mousedown', e => {
   hDragStart(e.clientY);
   const mm = e2 => hDragMove(e2.clientY);
   const mu = () => { hDragEnd(); window.removeEventListener('mousemove', mm); window.removeEventListener('mouseup', mu); };
-  window.addEventListener('mousemove', mm);
-  window.addEventListener('mouseup', mu);
+  window.addEventListener('mousemove', mm); window.addEventListener('mouseup', mu);
 });
 
 function switchTab(name) {
@@ -533,15 +497,10 @@ function switchTab(name) {
   document.getElementById('render-canvas-wrap').style.display = (name === 'render') ? 'block' : 'none';
   if (name === 'jump' || name === 'render') {
     panelDetail.style.display = (name === 'render') ? '' : 'none';
-    panelHandle.style.opacity = '.4';
-    handleLabel.textContent = '';
+    panelHandle.style.opacity = '.4'; handleLabel.textContent = '';
     if (name === 'render') { panelDetail.style.display = ''; panelHandle.style.opacity = '1'; setDetailExpanded(true); }
     else setDetailExpanded(false);
-  } else {
-    panelDetail.style.display = '';
-    panelHandle.style.opacity = '1';
-    requestAnimationFrame(fitView);
-  }
+  } else { panelDetail.style.display = ''; panelHandle.style.opacity = '1'; requestAnimationFrame(fitView); }
 }
 document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
 
@@ -551,9 +510,7 @@ function renderCountryList() {
   wrap.innerHTML = '';
   const names = Object.keys(allChunkData).sort((a, b) => (allChunkData[b].chunkCount || 0) - (allChunkData[a].chunkCount || 0));
   countEl.textContent = '国: ' + names.length + 'か国';
-  if (!names.length) {
-    const e = document.createElement('div'); e.className = 'country-list-empty'; e.textContent = 'データなし'; wrap.appendChild(e); return;
-  }
+  if (!names.length) { const e = document.createElement('div'); e.className = 'country-list-empty'; e.textContent = 'データなし'; wrap.appendChild(e); return; }
   names.forEach(name => {
     const data = allChunkData[name];
     const item = document.createElement('div'); item.className = 'country-list-item';
@@ -571,6 +528,9 @@ function renderCountryList() {
   });
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// タッチ・マウス操作
+// ══════════════════════════════════════════════════════════════════════════════
 let pointers = {}, panActive = false, panLastX = 0, panLastY = 0;
 let pinchActive = false, pinchDist = 0, pinchMidX = 0, pinchMidY = 0;
 let isTap = false, tapStartX = 0, tapStartY = 0, tapStartTime = 0;
@@ -592,17 +552,14 @@ function onTouchStart(e) {
     pinchMidX = (a.x + b.x) / 2; pinchMidY = (a.y + b.y) / 2;
   }
 }
-
 function onTouchMove(e) {
-  if (e.target.closest('#panel')) return;
-  e.preventDefault();
+  if (e.target.closest('#panel')) return; e.preventDefault();
   for (const t of e.changedTouches) pointers[t.identifier] = { x: t.clientX, y: t.clientY };
   const k = Object.keys(pointers);
   if (k.length === 1 && panActive) {
     const p = pointers[k[0]], dx = p.x - panLastX, dy = p.y - panLastY;
     if (Math.abs(dx) > 3 || Math.abs(dy) > 3) isTap = false;
-    view.x += dx; view.y += dy; panLastX = p.x; panLastY = p.y;
-    clampView(); applyView();
+    view.x += dx; view.y += dy; panLastX = p.x; panLastY = p.y; clampView(); applyView();
   } else if (k.length === 2 && pinchActive) {
     const a = pointers[k[0]], b = pointers[k[1]];
     const dist = Math.hypot(b.x - a.x, b.y - a.y);
@@ -616,11 +573,9 @@ function onTouchMove(e) {
     view.y = oy - (oy - view.y) * (ns / view.scale);
     view.scale = ns;
     view.x += mx - pinchMidX; view.y += my - pinchMidY;
-    pinchDist = dist; pinchMidX = mx; pinchMidY = my;
-    clampView(); applyView();
+    pinchDist = dist; pinchMidX = mx; pinchMidY = my; clampView(); applyView();
   }
 }
-
 function onTouchEnd(e) {
   for (const t of e.changedTouches) delete pointers[t.identifier];
   const rem = Object.keys(pointers).length;
@@ -629,15 +584,13 @@ function onTouchEnd(e) {
     panActive = false; pinchActive = false; isTap = false;
   } else if (rem === 1) {
     pinchActive = false; panActive = true; isTap = false;
-    const p = pointers[Object.keys(pointers)[0]];
-    panLastX = p.x; panLastY = p.y;
+    const p = pointers[Object.keys(pointers)[0]]; panLastX = p.x; panLastY = p.y;
   }
 }
 function onTouchCancel(e) {
   for (const t of e.changedTouches) delete pointers[t.identifier];
   panActive = false; pinchActive = false; isTap = false;
 }
-
 chunkCanvas.addEventListener('touchstart', onTouchStart, { passive: false });
 chunkCanvas.addEventListener('touchmove',  onTouchMove,  { passive: false });
 chunkCanvas.addEventListener('touchend',   onTouchEnd,   { passive: false });
@@ -658,13 +611,11 @@ window.addEventListener('mousemove', e => {
   if (!mouseDragging) return;
   const dx = e.clientX - mouseLastX, dy = e.clientY - mouseLastY;
   if (Math.abs(dx) > 3 || Math.abs(dy) > 3) mouseMoved = true;
-  view.x += dx; view.y += dy; mouseLastX = e.clientX; mouseLastY = e.clientY;
-  clampView(); applyView();
+  view.x += dx; view.y += dy; mouseLastX = e.clientX; mouseLastY = e.clientY; clampView(); applyView();
 });
 window.addEventListener('mouseup', () => mouseDragging = false);
 chunkCanvas.addEventListener('wheel', e => {
-  e.preventDefault();
-  zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.15 : 1 / 1.15);
+  e.preventDefault(); zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.15 : 1 / 1.15);
 }, { passive: false });
 
 function zoomAt(cx, cy, f) {
@@ -675,8 +626,7 @@ function zoomAt(cx, cy, f) {
   const ox = cx - r.left, oy = cy - r.top;
   view.x = ox - (ox - view.x) * (ns / view.scale);
   view.y = oy - (oy - view.y) * (ns / view.scale);
-  view.scale = ns;
-  clampView(); applyView();
+  view.scale = ns; clampView(); applyView();
 }
 function zoomBy(f) {
   const r = mapArea.getBoundingClientRect();
@@ -685,10 +635,7 @@ function zoomBy(f) {
 }
 function bindZoomBtn(el, f) {
   let fired = false;
-  const trigger = e => {
-    e.preventDefault(); e.stopPropagation();
-    if (fired) return; fired = true; zoomBy(f); setTimeout(() => fired = false, 150);
-  };
+  const trigger = e => { e.preventDefault(); e.stopPropagation(); if (fired) return; fired = true; zoomBy(f); setTimeout(() => fired = false, 150); };
   el.addEventListener('touchstart', trigger, { passive: false });
   el.addEventListener('mousedown', trigger);
   el.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); });
@@ -697,15 +644,9 @@ bindZoomBtn(document.getElementById('zoom-in'),  1.4);
 bindZoomBtn(document.getElementById('zoom-out'), 1 / 1.4);
 document.getElementById('btn-jump').addEventListener('click', doJumpTo);
 
-async function api(path, options = {}) {
-  const r = await fetch(WORKER_API + path, { ...options, headers: { 'Content-Type': 'application/json', ...(options.headers || {}) } });
-  const text = await r.text();
-  let data = null;
-  try { data = text ? JSON.parse(text) : null; } catch { data = text; }
-  if (!r.ok) throw new Error(data && data.error ? data.error : `HTTP ${r.status}`);
-  return data;
-}
-
+// ══════════════════════════════════════════════════════════════════════════════
+// ライブプレイヤー（Firebase直接）
+// ══════════════════════════════════════════════════════════════════════════════
 let liveActive = false, liveMarkers = {}, liveTimer = null;
 const liveToggleBtn    = document.getElementById('btn-live-toggle');
 const liveStatusChip   = document.getElementById('live-status');
@@ -722,8 +663,7 @@ function upsertLiveMarker(id, x, z) {
     const ai = new Image(); ai.alt = id;
     ai.onload = () => { ic.textContent = ''; ic.appendChild(ai); };
     ai.src = 'https://crafatar.com/avatars/' + encodeURIComponent(id) + '?size=32&overlay';
-    el.append(lb, ic);
-    mapArea.appendChild(el);
+    el.append(lb, ic); mapArea.appendChild(el);
     e = { el }; liveMarkers[id] = e;
   }
   e.x = x; e.z = z;
@@ -755,13 +695,11 @@ function renderLivePlayerList(data) {
   const ids = Object.keys(data || {}).filter(id => data[id] && typeof data[id].x === 'number' && typeof data[id].z === 'number' && isInsideMapBounds(data[id].x, data[id].z)).sort();
   if (!ids.length) {
     const e = document.createElement('div'); e.className = 'live-list-empty'; e.textContent = 'オンラインのプレイヤーがいません'; livePlayerListEl.appendChild(e);
-  } else {
-    ids.forEach(id => livePlayerListEl.appendChild(buildPlayerListItem(id, data[id])));
-  }
+  } else { ids.forEach(id => livePlayerListEl.appendChild(buildPlayerListItem(id, data[id]))); }
 }
 async function refreshLive() {
   try {
-    const data = await api('/api/players');
+    const data = await fbGet('/players');
     const seen = {};
     Object.keys(data || {}).forEach(id => {
       const p = data[id];
@@ -787,7 +725,9 @@ document.getElementById('tab-btn-players').addEventListener('click', () => {
   if (!liveActive) { liveActive = true; liveToggleBtn.textContent = 'ライブ表示: ON'; liveToggleBtn.classList.add('danger'); startLive(); }
 });
 
-// ── 描画タブ（手動） ──────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// 描画タブ（手動）— Firebase直接
+// ══════════════════════════════════════════════════════════════════════════════
 const renderCanvas   = document.getElementById('render-canvas');
 const renderWrap     = document.getElementById('render-canvas-wrap');
 const renderStat     = document.getElementById('render-stat');
@@ -796,51 +736,40 @@ const btnRenderLoad  = document.getElementById('btn-render-load');
 const btnRenderSave  = document.getElementById('btn-render-save');
 let renderImageDataURL = null;
 
-// ★ 手動描画タブも同じロジックで修正（1チャンク=1px）
+function isWaterChunk(val) {
+  if (!val) return true;
+  const id = val.id || '';
+  return id === 'minecraft:water' || id === 'minecraft:kelp' ||
+    id === 'minecraft:seagrass' || id === 'minecraft:tall_seagrass' ||
+    id === 'minecraft:bubble_column';
+}
+
 async function loadAndRender() {
   btnRenderLoad.disabled = true; btnRenderSave.disabled = true;
   renderStat.textContent = 'データ取得中...'; renderProgress.style.width = '0%';
   renderImageDataURL = null;
-
   let meta, rawData;
   try {
-    const res = await api('/api/blocks');
-    if (res && typeof res === 'object' && ('data' in res || 'meta' in res)) {
-      meta    = res.meta || {};
-      rawData = res.data || {};
-    } else {
-      meta    = {};
-      rawData = res || {};
-    }
+    const res = await fbGet('/blocks');
+    meta    = res?.meta || {};
+    rawData = res?.data || {};
   } catch (e) {
     renderStat.textContent = '取得失敗: ' + e.message;
-    btnRenderLoad.disabled = false;
-    return;
+    btnRenderLoad.disabled = false; return;
   }
-
   const entries = Object.entries(rawData);
-  const total = entries.length;
-  if (total === 0) {
+  if (!entries.length) {
     renderStat.textContent = 'データなし。マイクラで /earth:rendering を実行してください。';
-    btnRenderLoad.disabled = false;
-    return;
+    btnRenderLoad.disabled = false; return;
   }
-
-  renderStat.textContent = `描画中... (${total}ブロック)`;
-
-  // ★ チャンク座標に変換してMapに集約
+  renderStat.textContent = `描画中... (${entries.length}ブロック)`;
   const chunkMap = new Map();
   for (const [key, val] of entries) {
-    // ★ lastIndexOf('_') で正しく負座標を分割
     const u = key.lastIndexOf('_'); if (u === -1) continue;
-    const bx = parseInt(key.slice(0, u));
-    const bz = parseInt(key.slice(u + 1));
+    const bx = parseInt(key.slice(0, u)), bz = parseInt(key.slice(u + 1));
     if (isNaN(bx) || isNaN(bz)) continue;
-    const cx = Math.floor(bx / CHUNK_SIZE);
-    const cz = Math.floor(bz / CHUNK_SIZE);
-    chunkMap.set(`${cx}_${cz}`, val);
+    chunkMap.set(`${Math.floor(bx / CHUNK_SIZE)}_${Math.floor(bz / CHUNK_SIZE)}`, val);
   }
-
   let minCX = Infinity, maxCX = -Infinity, minCZ = Infinity, maxCZ = -Infinity;
   for (const ck of chunkMap.keys()) {
     const u = ck.indexOf('_');
@@ -848,23 +777,13 @@ async function loadAndRender() {
     minCX = Math.min(minCX, cx); maxCX = Math.max(maxCX, cx);
     minCZ = Math.min(minCZ, cz); maxCZ = Math.max(maxCZ, cz);
   }
-
-  const numCX = maxCX - minCX + 1;
-  const numCZ = maxCZ - minCZ + 1;
-  const MAX_PX = 2048;
-  // ★ 1チャンク=1px基本、大きすぎる場合のみ縮小
-  const chunkPx = Math.max(1, Math.floor(Math.min(MAX_PX / numCX, MAX_PX / numCZ)));
-  const canvasW = numCX * chunkPx;
-  const canvasH = numCZ * chunkPx;
-
-  renderCanvas.width = canvasW; renderCanvas.height = canvasH;
+  const numCX = maxCX - minCX + 1, numCZ = maxCZ - minCZ + 1;
+  const chunkPx = Math.max(1, Math.floor(Math.min(2048 / numCX, 2048 / numCZ)));
+  renderCanvas.width = numCX * chunkPx; renderCanvas.height = numCZ * chunkPx;
   const ctx = renderCanvas.getContext('2d');
-  // ★ 背景を水色で塗る（海）
-  ctx.fillStyle = '#3c6fa8'; ctx.fillRect(0, 0, canvasW, canvasH);
-
-  const imageData = ctx.getImageData(0, 0, canvasW, canvasH);
+  ctx.fillStyle = '#3c6fa8'; ctx.fillRect(0, 0, renderCanvas.width, renderCanvas.height);
+  const imageData = ctx.getImageData(0, 0, renderCanvas.width, renderCanvas.height);
   const d = imageData.data;
-
   const chunkEntries = [...chunkMap.entries()];
   const BATCH = 500;
   for (let i = 0; i < chunkEntries.length; i += BATCH) {
@@ -873,48 +792,30 @@ async function loadAndRender() {
       const [ck, val] = chunkEntries[j];
       const u = ck.indexOf('_');
       const cx = parseInt(ck.slice(0, u)), cz = parseInt(ck.slice(u + 1));
-      const px0 = (cx - minCX) * chunkPx;
-      const pz0 = (cz - minCZ) * chunkPx;
-
-      // ★ 水判定: 水系ブロックIDのみ → 青色固定
+      const px0 = (cx - minCX) * chunkPx, pz0 = (cz - minCZ) * chunkPx;
       let r, g, b;
-      if (isWaterChunk(val)) {
-        r = 0x3c; g = 0x6f; b = 0xa8;
-      } else {
-        const y = val.y ?? 64;
-        const bright = Math.min(1, Math.max(0.5, (y + 64) / 320));
-        const baseCol = blockColor(val.id || 'minecraft:stone');
-        const hex = baseCol.startsWith('#') ? baseCol.slice(1) : '808080';
+      if (isWaterChunk(val)) { r = 0x3c; g = 0x6f; b = 0xa8; }
+      else {
+        const y = val.y ?? 64, bright = Math.min(1, Math.max(0.5, (y + 64) / 320));
+        const hex = (blockColor(val.id || 'minecraft:stone')).slice(1);
         r = Math.min(255, Math.round(parseInt(hex.slice(0,2),16) * bright));
         g = Math.min(255, Math.round(parseInt(hex.slice(2,4),16) * bright));
         b = Math.min(255, Math.round(parseInt(hex.slice(4,6),16) * bright));
       }
-
-      // ★ chunkPx×chunkPx を塗りつぶす（隙間なし）
-      for (let dy = 0; dy < chunkPx; dy++) {
-        for (let dx = 0; dx < chunkPx; dx++) {
-          const pi = ((pz0 + dy) * canvasW + (px0 + dx)) * 4;
-          d[pi] = r; d[pi+1] = g; d[pi+2] = b; d[pi+3] = 255;
-        }
+      for (let dy = 0; dy < chunkPx; dy++) for (let dx = 0; dx < chunkPx; dx++) {
+        const pi = ((pz0 + dy) * renderCanvas.width + (px0 + dx)) * 4;
+        d[pi] = r; d[pi+1] = g; d[pi+2] = b; d[pi+3] = 255;
       }
     }
     renderProgress.style.width = Math.floor((end / chunkEntries.length) * 100) + '%';
     renderStat.textContent = `描画中... ${end}/${chunkEntries.length}チャンク`;
     await new Promise(r => setTimeout(r, 0));
   }
-
   ctx.putImageData(imageData, 0, 0);
   renderProgress.style.width = '100%';
-  renderStat.textContent = `完了 — ${chunkEntries.length}チャンク (${canvasW}×${canvasH}px)`;
+  renderStat.textContent = `完了 — ${chunkEntries.length}チャンク`;
   renderImageDataURL = renderCanvas.toDataURL('image/png');
   btnRenderSave.disabled = false; btnRenderLoad.disabled = false;
-}
-
-function applyBrightness(color, factor) {
-  let r, g, b;
-  if (color.startsWith('#')) { const hex = color.slice(1); r = parseInt(hex.slice(0, 2), 16); g = parseInt(hex.slice(2, 4), 16); b = parseInt(hex.slice(4, 6), 16); }
-  else { const m = color.match(/\d+/g); [r, g, b] = m ? m.map(Number) : [128, 128, 128]; }
-  return `rgb(${Math.round(r * factor)},${Math.round(g * factor)},${Math.round(b * factor)})`;
 }
 function saveRenderAsPng() {
   if (!renderImageDataURL) return;
@@ -926,193 +827,109 @@ btnRenderLoad.addEventListener('click', loadAndRender);
 btnRenderSave.addEventListener('click', saveRenderAsPng);
 
 // ══════════════════════════════════════════════════════════════════════════════
-// ★ autoLoadBlockMap 修正版
-// 問題: キーが "bx_bz"（チャンク中心1点）なのに、ブロック座標として扱っていた
-//   → チャンク1個が scale px（< 1px）になり、隙間が出てほぼ見えない
-// 修正: キーをチャンク座標(cx,cz)に変換→1チャンク=1px で描画
+// 自動マップ描画（Firebase直接）
 // ══════════════════════════════════════════════════════════════════════════════
-let lastAutoScanned    = 0;
-let lastAutoBlockCount = 0;
-const _autoOffscreen   = document.createElement('canvas');
-
-// ★ スキャン中の変化検出用ハッシュ（チャンクid文字列を結合して変化を検知）
+let lastAutoScanned = 0;
+const _autoOffscreen = document.createElement('canvas');
 let _lastAutoHash = '';
 
-// ★ チャンク内容から簡易ハッシュ文字列を生成（変化検出用）
 function makeChunkHash(chunkMap) {
   const keys = [...chunkMap.keys()].sort();
   let h = '';
-  for (const k of keys) {
-    const v = chunkMap.get(k);
-    h += k + ':' + (v?.id || '') + ':' + (v?.y ?? '') + '|';
-  }
+  for (const k of keys) { const v = chunkMap.get(k); h += k + ':' + (v?.id||'') + ':' + (v?.y??'') + '|'; }
   return h;
-}
-
-// ★ 水判定（水系ブロックIDのみ）
-function isWaterChunk(val) {
-  if (!val) return true;
-  const id = val.id || '';
-  return id === 'minecraft:water' || id === 'minecraft:kelp' ||
-    id === 'minecraft:seagrass' || id === 'minecraft:tall_seagrass' ||
-    id === 'minecraft:bubble_column';
 }
 
 async function autoLoadBlockMap() {
   try {
-    const res = await api('/api/blocks');
-
-    let meta, rawData;
-    if (res && typeof res === 'object' && ('data' in res || 'meta' in res)) {
-      meta    = res.meta || {};
-      rawData = res.data || {};
-    } else {
-      meta    = {};
-      rawData = res || {};
-    }
-
+    const res = await fbGet('/blocks');
+    const meta    = res?.meta || {};
+    const rawData = res?.data || {};
     const blockCount = Object.keys(rawData).length;
+
     if (blockCount === 0) {
       hdrInfo.textContent = 'ブロックデータ未生成 — マイクラで /earth:rendering を実行してください';
       return;
     }
-
-    // スキャン完了判定（スキャン中でない場合）
     if (!meta.scanning) {
       const scanned = meta.lastScanned || 0;
       if (scanned && scanned <= lastAutoScanned) return;
       if (scanned) lastAutoScanned = scanned;
     }
-    lastAutoBlockCount = blockCount;
 
     hdrInfo.textContent = meta.scanning
       ? `スキャン進行中: 収集中 (${blockCount.toLocaleString()}チャンク取得済み)`
       : 'マップ描画中...';
 
-    const entries = Object.entries(rawData);
-
-    // ★ Step1: キーをチャンク座標に変換して集約
-    // キー形式: "bx_bz"（bxもbzも負になりうる）
-    const chunkMap = new Map(); // "cx_cz" → {id, y}
-    // ★ MAP_BOUNDSをチャンク座標に変換（右端欠け修正）
-    const MAP_CX1 = Math.floor(MAP_BOUNDS.x1 / CHUNK_SIZE);
-    const MAP_CX2 = Math.floor(MAP_BOUNDS.x2 / CHUNK_SIZE);
-    const MAP_CZ1 = Math.floor(MAP_BOUNDS.z1 / CHUNK_SIZE);
-    const MAP_CZ2 = Math.floor(MAP_BOUNDS.z2 / CHUNK_SIZE);
-
+    const chunkMap = new Map();
+    const MAP_CX1 = Math.floor(MAP_BOUNDS.x1 / CHUNK_SIZE), MAP_CX2 = Math.floor(MAP_BOUNDS.x2 / CHUNK_SIZE);
+    const MAP_CZ1 = Math.floor(MAP_BOUNDS.z1 / CHUNK_SIZE), MAP_CZ2 = Math.floor(MAP_BOUNDS.z2 / CHUNK_SIZE);
     let minCX = Infinity, maxCX = -Infinity, minCZ = Infinity, maxCZ = -Infinity;
 
-    for (const [key, val] of entries) {
-      const uIdx = key.lastIndexOf('_');
-      if (uIdx === -1) continue;
-      const bx = parseInt(key.slice(0, uIdx));
-      const bz = parseInt(key.slice(uIdx + 1));
+    for (const [key, val] of Object.entries(rawData)) {
+      const u = key.lastIndexOf('_'); if (u === -1) continue;
+      const bx = parseInt(key.slice(0, u)), bz = parseInt(key.slice(u + 1));
       if (isNaN(bx) || isNaN(bz)) continue;
-      // ★ チャンク座標に変換してからMAP_BOUNDS判定（右端欠け修正）
-      const cx = Math.floor(bx / CHUNK_SIZE);
-      const cz = Math.floor(bz / CHUNK_SIZE);
+      const cx = Math.floor(bx / CHUNK_SIZE), cz = Math.floor(bz / CHUNK_SIZE);
       if (cx < MAP_CX1 || cx > MAP_CX2 || cz < MAP_CZ1 || cz > MAP_CZ2) continue;
       chunkMap.set(`${cx}_${cz}`, val);
       minCX = Math.min(minCX, cx); maxCX = Math.max(maxCX, cx);
       minCZ = Math.min(minCZ, cz); maxCZ = Math.max(maxCZ, cz);
     }
 
-    if (minCX === Infinity) {
-      hdrInfo.textContent = 'マップ範囲内のブロックデータがありません';
-      return;
-    }
+    if (minCX === Infinity) { hdrInfo.textContent = 'マップ範囲内のブロックデータがありません'; return; }
 
-    // ★ スキャン中: チャンク内容が変わっていない場合はスキップ
     if (meta.scanning) {
       const hash = makeChunkHash(chunkMap);
-      if (hash === _lastAutoHash) {
-        hdrInfo.textContent = `スキャン進行中: 収集中 (${blockCount.toLocaleString()}チャンク取得済み)`;
-        return;
-      }
+      if (hash === _lastAutoHash) { hdrInfo.textContent = `スキャン進行中: 収集中 (${blockCount.toLocaleString()}チャンク取得済み)`; return; }
       _lastAutoHash = hash;
-    } else {
-      _lastAutoHash = '';
-    }
+    } else { _lastAutoHash = ''; }
 
-    // ★ Step2: チャンク数ベースのキャンバスサイズ（1チャンク=1px、隙間なし）
-    const numCX = maxCX - minCX + 1;
-    const numCZ = maxCZ - minCZ + 1;
-    const MAX_PX = 2048;
-    const chunkPx = Math.max(1, Math.floor(Math.min(MAX_PX / numCX, MAX_PX / numCZ)));
-    const cw = numCX * chunkPx;
-    const ch = numCZ * chunkPx;
-
-    _autoOffscreen.width  = cw;
-    _autoOffscreen.height = ch;
+    const numCX = maxCX - minCX + 1, numCZ = maxCZ - minCZ + 1;
+    const chunkPx = Math.max(1, Math.floor(Math.min(2048 / numCX, 2048 / numCZ)));
+    const cw = numCX * chunkPx, ch = numCZ * chunkPx;
+    _autoOffscreen.width = cw; _autoOffscreen.height = ch;
     const ctx = _autoOffscreen.getContext('2d');
-    // ★ 背景（水）で塗りつぶし
-    ctx.fillStyle = '#3c6fa8';
-    ctx.fillRect(0, 0, cw, ch);
-
-    // ★ Step3: ImageDataに直接書き込む（1チャンク=chunkPx×chunkPx px、隙間ゼロ）
+    ctx.fillStyle = '#3c6fa8'; ctx.fillRect(0, 0, cw, ch);
     const imageData = ctx.getImageData(0, 0, cw, ch);
     const d = imageData.data;
 
     for (const [ck, val] of chunkMap) {
-      const uIdx = ck.indexOf('_');
-      const cx = parseInt(ck.slice(0, uIdx));
-      const cz = parseInt(ck.slice(uIdx + 1));
-      const px0 = (cx - minCX) * chunkPx;
-      const pz0 = (cz - minCZ) * chunkPx;
-
-      // ★ 水判定: 水系ブロックIDのみ → 青色固定
+      const u = ck.indexOf('_');
+      const cx = parseInt(ck.slice(0, u)), cz = parseInt(ck.slice(u + 1));
+      const px0 = (cx - minCX) * chunkPx, pz0 = (cz - minCZ) * chunkPx;
       let r, g, b;
-      if (isWaterChunk(val)) {
-        r = 0x3c; g = 0x6f; b = 0xa8;
-      } else {
-        const y      = val?.y ?? 64;
-        const bright = Math.min(1.1, Math.max(0.55, (y + 64) / 290));
-        const col    = blockColor(val?.id || 'minecraft:stone');
-        const hex    = col.startsWith('#') ? col.slice(1) : '808080';
-        r = Math.min(255, Math.round(parseInt(hex.slice(0, 2), 16) * bright));
-        g = Math.min(255, Math.round(parseInt(hex.slice(2, 4), 16) * bright));
-        b = Math.min(255, Math.round(parseInt(hex.slice(4, 6), 16) * bright));
+      if (isWaterChunk(val)) { r = 0x3c; g = 0x6f; b = 0xa8; }
+      else {
+        const y = val?.y ?? 64, bright = Math.min(1.1, Math.max(0.55, (y + 64) / 290));
+        const hex = (blockColor(val?.id || 'minecraft:stone')).slice(1);
+        r = Math.min(255, Math.round(parseInt(hex.slice(0,2),16) * bright));
+        g = Math.min(255, Math.round(parseInt(hex.slice(2,4),16) * bright));
+        b = Math.min(255, Math.round(parseInt(hex.slice(4,6),16) * bright));
       }
-
-      for (let dy = 0; dy < chunkPx; dy++) {
-        for (let dx = 0; dx < chunkPx; dx++) {
-          const pi = ((pz0 + dy) * cw + (px0 + dx)) * 4;
-          d[pi]   = r;
-          d[pi+1] = g;
-          d[pi+2] = b;
-          d[pi+3] = 255;
-        }
+      for (let dy = 0; dy < chunkPx; dy++) for (let dx = 0; dx < chunkPx; dx++) {
+        const pi = ((pz0 + dy) * cw + (px0 + dx)) * 4;
+        d[pi] = r; d[pi+1] = g; d[pi+2] = b; d[pi+3] = 255;
       }
     }
 
     ctx.putImageData(imageData, 0, 0);
+    mapImgMcX1 = minCX * CHUNK_SIZE; mapImgMcZ1 = minCZ * CHUNK_SIZE;
+    mapImgMcX2 = (maxCX + 1) * CHUNK_SIZE; mapImgMcZ2 = (maxCZ + 1) * CHUNK_SIZE;
+    IMG_W = cw; IMG_H = ch;
 
-    // ★ Step4: mapImgのMC座標範囲を更新（チャンク→ブロック座標）
-    const minX = minCX * CHUNK_SIZE;
-    const minZ = minCZ * CHUNK_SIZE;
-    const maxX = (maxCX + 1) * CHUNK_SIZE;
-    const maxZ = (maxCZ + 1) * CHUNK_SIZE;
-    mapImgMcX1 = minX; mapImgMcZ1 = minZ;
-    mapImgMcX2 = maxX; mapImgMcZ2 = maxZ;
-    IMG_W = cw;
-    IMG_H = ch;
-
-    // Step5: mapImgに反映
     const dataUrl = _autoOffscreen.toDataURL('image/png');
-    renderImageDataURL = dataUrl;
-    btnRenderSave.disabled = false;
-
+    renderImageDataURL = dataUrl; btnRenderSave.disabled = false;
     mapImg.onload = () => { fitView(); drawChunks(); };
     mapImg.src = dataUrl;
 
-    const chunkTotal = chunkMap.size;
     if (meta.lastScanned) {
       const dt = new Date(meta.lastScanned).toLocaleString('ja-JP');
-      hdrInfo.textContent = `最終更新: ${dt}  (${chunkTotal.toLocaleString()}チャンク)  X[${minX}〜${maxX}] Z[${minZ}〜${maxZ}]`;
+      hdrInfo.textContent = `最終更新: ${dt}  (${chunkMap.size.toLocaleString()}チャンク)`;
     } else {
-      hdrInfo.textContent = `スキャン中 (${chunkTotal.toLocaleString()}チャンク)  X[${minX}〜${maxX}] Z[${minZ}〜${maxZ}]`;
+      hdrInfo.textContent = `スキャン中 (${chunkMap.size.toLocaleString()}チャンク)`;
     }
-    renderStat.textContent = `自動描画済み — ${chunkTotal.toLocaleString()}チャンク (${cw}×${ch}px)`;
+    renderStat.textContent = `自動描画済み — ${chunkMap.size.toLocaleString()}チャンク (${cw}×${ch}px)`;
 
   } catch (e) {
     hdrInfo.textContent = 'ブロックデータ取得失敗: ' + e.message;
@@ -1127,13 +944,11 @@ window.addEventListener('load', () => {
   document.getElementById('live-player-list').style.display = 'flex';
   document.getElementById('country-list-wrap').style.display = 'none';
   document.getElementById('render-canvas-wrap').style.display = 'none';
-  // ★ スキャン中は10秒ごと、完了後は60秒ごとに自動切り替え
   let _autoLoadTimer = null;
   async function scheduleAutoLoad() {
     await autoLoadBlockMap();
-    // meta.scanningが取れないのでDOM上のテキストで判定（簡易）
     const scanning = hdrInfo.textContent.includes('スキャン進行中');
-    _autoLoadTimer = setTimeout(scheduleAutoLoad, scanning ? 5000 : 60000);
+    _autoLoadTimer = setTimeout(scheduleAutoLoad, scanning ? 10000 : 60000);
   }
   scheduleAutoLoad();
 });
