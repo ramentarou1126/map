@@ -287,6 +287,22 @@ function fitView() {
   applyView();
 }
 
+function syncCanvasSize() {
+  const r = mapArea.getBoundingClientRect();
+  if (chunkCanvas.width !== r.width || chunkCanvas.height !== r.height) {
+    chunkCanvas.width  = r.width;
+    chunkCanvas.height = r.height;
+  }
+}
+
+// rAFスロットリング：1フレームに1回だけdrawChunksを実行
+let _drawPending = false;
+function scheduleDraw() {
+  if (_drawPending) return;
+  _drawPending = true;
+  requestAnimationFrame(() => { _drawPending = false; drawChunks(); });
+}
+
 function applyView() {
   const imgMcW = mapImgMcX2 - mapImgMcX1;
   const imgMcH = mapImgMcZ2 - mapImgMcZ1;
@@ -298,11 +314,8 @@ function applyView() {
   mapImg.style.height = imgPxH + 'px';
   mapImg.style.left   = imgLeft + 'px';
   mapImg.style.top    = imgTop  + 'px';
-  const r = mapArea.getBoundingClientRect();
-  chunkCanvas.width  = r.width;
-  chunkCanvas.height = r.height;
   updateAllMarkers();
-  drawChunks();
+  scheduleDraw();
 }
 
 function clampView() {
@@ -344,7 +357,7 @@ async function fetchChunkData() {
       _lastChunkDataStr = newStr;
       allChunkData = data || {};
       renderCountryList();
-      drawChunks();
+      scheduleDraw();
     }
   } catch (e) { console.warn('チャンクデータ取得失敗:', e); }
 }
@@ -358,7 +371,7 @@ borderToggleBtn.classList.add('active');
 borderToggleBtn.addEventListener('click', () => {
   showBorders = !showBorders;
   borderToggleBtn.classList.toggle('active', showBorders);
-  drawChunks();
+  scheduleDraw();
 });
 
 // ブロック未読込ボタン（マップ上のアイコンボタン）
@@ -375,7 +388,7 @@ function setUnrenderedMode(val) {
   btnShowUnrendered.textContent = '🟥 ブロック未読込表示: ' + (showUnrendered ? 'ON' : 'OFF');
   btnShowUnrendered.classList.toggle('active-warn', showUnrendered);
   if (showUnrendered) updateUnrenderedStat();
-  drawChunks();
+  scheduleDraw();
 }
 
 unrenderedToggleBtn.addEventListener('click', () => setUnrenderedMode(!showUnrendered));
@@ -390,76 +403,102 @@ function updateUnrenderedStat() {
 }
 
 function drawChunks() {
+  syncCanvasSize();
   const ctx = chunkCanvas.getContext('2d');
-  ctx.clearRect(0, 0, chunkCanvas.width, chunkCanvas.height);
+  const cw = chunkCanvas.width, ch = chunkCanvas.height;
+  ctx.clearRect(0, 0, cw, ch);
+
+  // チャンク1個のピクセルサイズ
+  const chunkPxSize = CHUNK_SIZE * view.scale;
 
   // ─── ブロック未読込チャンクのハイライト（MAP_BOUNDS全域が対象）───
-  // 国の領土とは関係なく、ワールド全体でブロックデータがないチャンクを赤表示する
   if (showUnrendered) {
-    // 現在の表示領域に絞って描画（パフォーマンスのため）
-    const visX1 = -view.x / view.scale + MAP_BOUNDS.x1;
-    const visZ1 = -view.y / view.scale + MAP_BOUNDS.z1;
-    const visX2 = visX1 + chunkCanvas.width / view.scale;
-    const visZ2 = visZ1 + chunkCanvas.height / view.scale;
+    // 表示領域のチャンク範囲を計算
+    const visCX1 = Math.max(MAP_CX1, Math.floor((-view.x) / view.scale / CHUNK_SIZE) - 1);
+    const visCZ1 = Math.max(MAP_CZ1, Math.floor((-view.y) / view.scale / CHUNK_SIZE) - 1);
+    const visCX2 = Math.min(MAP_CX2, Math.ceil((-view.x + cw) / view.scale / CHUNK_SIZE) + 1);
+    const visCZ2 = Math.min(MAP_CZ2, Math.ceil((-view.y + ch) / view.scale / CHUNK_SIZE) + 1);
 
-    const visCX1 = Math.max(MAP_CX1, Math.floor(visX1 / CHUNK_SIZE) - 1);
-    const visCX2 = Math.min(MAP_CX2, Math.ceil(visX2 / CHUNK_SIZE) + 1);
-    const visCZ1 = Math.max(MAP_CZ1, Math.floor(visZ1 / CHUNK_SIZE) - 1);
-    const visCZ2 = Math.min(MAP_CZ2, Math.ceil(visZ2 / CHUNK_SIZE) + 1);
-
+    // 塗りを一括で（fillStyle/alpha変更を1回に）
+    ctx.fillStyle = '#c0392b';
+    ctx.globalAlpha = 0.45;
     for (let cz = visCZ1; cz <= visCZ2; cz++) {
       for (let cx = visCX1; cx <= visCX2; cx++) {
-        const key = `${cx}_${cz}`;
-        if (renderedChunkSet.has(key)) continue; // 読込済みはスキップ
-
-        const sx = cx * CHUNK_SIZE, sz = cz * CHUNK_SIZE;
-        const ex = sx + CHUNK_SIZE, ez = sz + CHUNK_SIZE;
-        const p1 = mcToPixel(sx, sz), p2 = mcToPixel(ex, ez);
-        const w = Math.abs(p2.x - p1.x), h = Math.abs(p2.y - p1.y);
-        const px = Math.min(p1.x, p2.x), py = Math.min(p1.y, p2.y);
-
-        // 赤い塗りつぶし
-        ctx.fillStyle = '#c0392b';
-        ctx.globalAlpha = 0.45;
-        ctx.fillRect(px, py, w, h);
-
-        // 赤い枠線
-        ctx.strokeStyle = '#ff6b5b';
-        ctx.globalAlpha = 0.7;
-        ctx.lineWidth = 1;
-        ctx.strokeRect(px, py, w, h);
-
-        // チャンクが大きければ × マークを描画
-        if (w > 10 && h > 10) {
-          const cx2 = px + w / 2, cy2 = py + h / 2;
-          const r2 = Math.min(w, h) * 0.28;
-          ctx.globalAlpha = 0.6;
-          ctx.strokeStyle = '#ff9999';
-          ctx.lineWidth = Math.max(1, r2 * 0.4);
-          ctx.beginPath();
-          ctx.moveTo(cx2 - r2, cy2 - r2); ctx.lineTo(cx2 + r2, cy2 + r2);
-          ctx.moveTo(cx2 + r2, cy2 - r2); ctx.lineTo(cx2 - r2, cy2 + r2);
-          ctx.stroke();
-        }
+        if (renderedChunkSet.has(`${cx}_${cz}`)) continue;
+        const px = view.x + (cx * CHUNK_SIZE - MAP_BOUNDS.x1) * view.scale;
+        const py = view.y + (cz * CHUNK_SIZE - MAP_BOUNDS.z1) * view.scale;
+        ctx.fillRect(px, py, chunkPxSize, chunkPxSize);
       }
     }
+
+    // 枠線はズームインしてある程度大きいときだけ描画
+    if (chunkPxSize >= 4) {
+      ctx.strokeStyle = '#ff6b5b';
+      ctx.globalAlpha = 0.7;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let cz = visCZ1; cz <= visCZ2; cz++) {
+        for (let cx = visCX1; cx <= visCX2; cx++) {
+          if (renderedChunkSet.has(`${cx}_${cz}`)) continue;
+          const px = view.x + (cx * CHUNK_SIZE - MAP_BOUNDS.x1) * view.scale;
+          const py = view.y + (cz * CHUNK_SIZE - MAP_BOUNDS.z1) * view.scale;
+          ctx.rect(px, py, chunkPxSize, chunkPxSize);
+        }
+      }
+      ctx.stroke();
+    }
+
+    // × マークはチャンクが十分大きいときだけ
+    if (chunkPxSize >= 12) {
+      ctx.strokeStyle = '#ff9999';
+      ctx.globalAlpha = 0.6;
+      ctx.lineWidth = Math.max(1, chunkPxSize * 0.08);
+      ctx.beginPath();
+      const r2 = chunkPxSize * 0.28;
+      for (let cz = visCZ1; cz <= visCZ2; cz++) {
+        for (let cx = visCX1; cx <= visCX2; cx++) {
+          if (renderedChunkSet.has(`${cx}_${cz}`)) continue;
+          const pcx = view.x + (cx * CHUNK_SIZE + CHUNK_SIZE / 2 - MAP_BOUNDS.x1) * view.scale;
+          const pcy = view.y + (cz * CHUNK_SIZE + CHUNK_SIZE / 2 - MAP_BOUNDS.z1) * view.scale;
+          ctx.moveTo(pcx - r2, pcy - r2); ctx.lineTo(pcx + r2, pcy + r2);
+          ctx.moveTo(pcx + r2, pcy - r2); ctx.lineTo(pcx - r2, pcy + r2);
+        }
+      }
+      ctx.stroke();
+    }
+
     updateUnrenderedStat();
   }
 
   // ─── 国境（クレーム済みチャンク）の描画 ───
   if (showBorders) {
+    // 国ごとに色をまとめてバッチ描画
     for (const n in allChunkData) {
       const d = allChunkData[n];
-      if (!d.chunks) continue;
+      if (!d.chunks || !d.chunks.length) continue;
       const c = getCountryColor(n);
+
+      // 塗り一括
+      ctx.fillStyle = c;
+      ctx.globalAlpha = 0.5;
       for (const chunk of d.chunks) {
-        const sx = chunk.cx * CHUNK_SIZE, sz = chunk.cz * CHUNK_SIZE;
-        const ex = sx + CHUNK_SIZE, ez = sz + CHUNK_SIZE;
-        const p1 = mcToPixel(sx, sz), p2 = mcToPixel(ex, ez);
-        const w = Math.abs(p2.x - p1.x), h = Math.abs(p2.y - p1.y);
-        const px = Math.min(p1.x, p2.x), py = Math.min(p1.y, p2.y);
-        ctx.fillStyle = c; ctx.globalAlpha = 0.5; ctx.fillRect(px, py, w, h);
-        ctx.strokeStyle = c; ctx.globalAlpha = 0.8; ctx.lineWidth = 2; ctx.strokeRect(px, py, w, h);
+        const px = view.x + (chunk.cx * CHUNK_SIZE - MAP_BOUNDS.x1) * view.scale;
+        const py = view.y + (chunk.cz * CHUNK_SIZE - MAP_BOUNDS.z1) * view.scale;
+        ctx.fillRect(px, py, chunkPxSize, chunkPxSize);
+      }
+
+      // 枠線一括（ある程度大きいときのみ）
+      if (chunkPxSize >= 3) {
+        ctx.strokeStyle = c;
+        ctx.globalAlpha = 0.8;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (const chunk of d.chunks) {
+          const px = view.x + (chunk.cx * CHUNK_SIZE - MAP_BOUNDS.x1) * view.scale;
+          const py = view.y + (chunk.cz * CHUNK_SIZE - MAP_BOUNDS.z1) * view.scale;
+          ctx.rect(px, py, chunkPxSize, chunkPxSize);
+        }
+        ctx.stroke();
       }
     }
   }
@@ -863,7 +902,7 @@ function updateRenderedChunkSet(rawData) {
     const cx = Math.floor(bx / CHUNK_SIZE), cz = Math.floor(bz / CHUNK_SIZE);
     renderedChunkSet.add(`${cx}_${cz}`);
   }
-  if (showUnrendered) { updateUnrenderedStat(); drawChunks(); }
+  if (showUnrendered) { updateUnrenderedStat(); scheduleDraw(); }
 }
 
 async function loadAndRender() {
@@ -1047,7 +1086,7 @@ async function autoLoadBlockMap() {
 
     const dataUrl = _autoOffscreen.toDataURL('image/png');
     renderImageDataURL = dataUrl; btnRenderSave.disabled = false;
-    mapImg.onload = () => { fitView(); drawChunks(); };
+    mapImg.onload = () => { fitView(); scheduleDraw(); };
     mapImg.src = dataUrl;
 
     if (meta.lastScanned) {
@@ -1064,9 +1103,9 @@ async function autoLoadBlockMap() {
   }
 }
 
-window.addEventListener('resize', fitView);
+window.addEventListener('resize', () => { syncCanvasSize(); fitView(); });
 window.addEventListener('load', () => {
-  fitView(); setTimeout(fitView, 50); setTimeout(fitView, 200);
+  syncCanvasSize(); fitView(); setTimeout(fitView, 50); setTimeout(fitView, 200);
   fetchChunkData(); setInterval(fetchChunkData, 10000);
   document.getElementById('live-player-list').style.display = 'flex';
   document.getElementById('country-list-wrap').style.display = 'none';
