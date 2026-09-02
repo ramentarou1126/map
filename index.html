@@ -93,11 +93,9 @@ input[type=number]{background:#0a0d08;border:2px solid var(--panel-border);color
 #border-toggle-btn{position:absolute;left:12px;bottom:185px;z-index:25;width:44px;height:44px;font-size:18px;background:var(--stone);border-top:3px solid #c9c9c9;border-left:3px solid #c9c9c9;border-right:3px solid #4a4a4a;border-bottom:3px solid #4a4a4a;cursor:pointer;display:flex;align-items:center;justify-content:center;user-select:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:background .15s}
 #border-toggle-btn.active{background:#2a5c1a;border-top-color:#6fae3e;border-left-color:#6fae3e;border-right-color:#1a3a0a;border-bottom-color:#1a3a0a;box-shadow:0 0 10px rgba(111,174,62,.5)}
 #border-toggle-btn:active{border-top-color:#4a4a4a;border-left-color:#4a4a4a;border-right-color:#c9c9c9;border-bottom-color:#c9c9c9}
-/* ブロック未読込ボタン */
 #unrendered-toggle-btn{position:absolute;left:12px;bottom:237px;z-index:25;width:44px;height:44px;font-size:18px;background:var(--stone);border-top:3px solid #c9c9c9;border-left:3px solid #c9c9c9;border-right:3px solid #4a4a4a;border-bottom:3px solid #4a4a4a;cursor:pointer;display:flex;align-items:center;justify-content:center;user-select:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:background .15s}
 #unrendered-toggle-btn.active{background:#7a1010;border-top-color:#e06060;border-left-color:#e06060;border-right-color:#3a0808;border-bottom-color:#3a0808;box-shadow:0 0 10px rgba(192,57,43,.6)}
 #unrendered-toggle-btn:active{border-top-color:#4a4a4a;border-left-color:#4a4a4a;border-right-color:#c9c9c9;border-bottom-color:#c9c9c9}
-/* 凡例バッジ */
 #unrendered-legend{position:absolute;left:62px;bottom:246px;z-index:25;background:rgba(10,14,10,.9);border:2px solid var(--redstone);color:#fff;font-family:var(--font-pixel);font-size:8px;padding:4px 8px;border-radius:3px;pointer-events:none;display:none;white-space:nowrap}
 #unrendered-legend.show{display:block}
 </style>
@@ -195,7 +193,6 @@ const CHUNK_SIZE = 16;
 const FULL_MC_W = MAP_BOUNDS.x2 - MAP_BOUNDS.x1;
 const FULL_MC_H = MAP_BOUNDS.z2 - MAP_BOUNDS.z1;
 
-// MAP_BOUNDS 内の全チャンク範囲
 const MAP_CX1 = Math.floor(MAP_BOUNDS.x1 / CHUNK_SIZE);
 const MAP_CX2 = Math.floor((MAP_BOUNDS.x2 - 1) / CHUNK_SIZE);
 const MAP_CZ1 = Math.floor(MAP_BOUNDS.z1 / CHUNK_SIZE);
@@ -276,7 +273,17 @@ function showError(msg) {
 
 function getPanelHeight() { return document.getElementById('panel').getBoundingClientRect().height || 0; }
 
+// ─── fitView デバウンス ───────────────────────────────────────────────────────
+// 同一フレーム内での多重呼び出しを rAF 1回にまとめる
+let _fitViewRaf = null;
 function fitView() {
+  if (_fitViewRaf) return;
+  _fitViewRaf = requestAnimationFrame(() => {
+    _fitViewRaf = null;
+    _doFitView();
+  });
+}
+function _doFitView() {
   const r = mapArea.getBoundingClientRect();
   const ph = getPanelHeight();
   if (r.width <= 0 || r.height <= 0) return;
@@ -285,22 +292,6 @@ function fitView() {
   view.x = (r.width  - FULL_MC_W * view.scale) / 2;
   view.y = (ah - FULL_MC_H * view.scale) / 2;
   applyView();
-}
-
-function syncCanvasSize() {
-  const r = mapArea.getBoundingClientRect();
-  if (chunkCanvas.width !== r.width || chunkCanvas.height !== r.height) {
-    chunkCanvas.width  = r.width;
-    chunkCanvas.height = r.height;
-  }
-}
-
-// rAFスロットリング：1フレームに1回だけdrawChunksを実行
-let _drawPending = false;
-function scheduleDraw() {
-  if (_drawPending) return;
-  _drawPending = true;
-  requestAnimationFrame(() => { _drawPending = false; drawChunks(); });
 }
 
 function applyView() {
@@ -314,8 +305,11 @@ function applyView() {
   mapImg.style.height = imgPxH + 'px';
   mapImg.style.left   = imgLeft + 'px';
   mapImg.style.top    = imgTop  + 'px';
+  const r = mapArea.getBoundingClientRect();
+  chunkCanvas.width  = r.width;
+  chunkCanvas.height = r.height;
   updateAllMarkers();
-  scheduleDraw();
+  scheduleDrawChunks();
 }
 
 function clampView() {
@@ -344,26 +338,28 @@ function isInsideMapBounds(x, z) {
 // チャンクデータ（Firebase直接）
 // ══════════════════════════════════════════════════════════════════════════════
 let allChunkData = {};
-let _lastChunkDataStr = '';
 
-// レンダリング済みチャンクのセット（キー: "cx_cz"）
+// 差分検出: 全JSON stringify → 国名+チャンク数のキー比較に変更（大幅に軽量化）
+let _lastChunkDataKey = '';
+function makeChunkDataKey(data) {
+  return Object.keys(data || {}).sort().map(n => n + ':' + (data[n].chunkCount || 0)).join('|');
+}
+
 let renderedChunkSet = new Set();
 
 async function fetchChunkData() {
   try {
     const data = await fbGet('/chunks');
-    const newStr = JSON.stringify(data || {});
-    if (newStr !== _lastChunkDataStr) {
-      _lastChunkDataStr = newStr;
-      allChunkData = data || {};
-      renderCountryList();
-      scheduleDraw();
-    }
+    const newKey = makeChunkDataKey(data);
+    if (newKey === _lastChunkDataKey) return; // 変化なし → 何もしない
+    _lastChunkDataKey = newKey;
+    allChunkData = data || {};
+    renderCountryList();
+    scheduleDrawChunks();
   } catch (e) { console.warn('チャンクデータ取得失敗:', e); }
 }
 
 let showBorders = true;
-// ブロック未読込表示フラグ
 let showUnrendered = false;
 
 const borderToggleBtn = document.getElementById('border-toggle-btn');
@@ -371,13 +367,11 @@ borderToggleBtn.classList.add('active');
 borderToggleBtn.addEventListener('click', () => {
   showBorders = !showBorders;
   borderToggleBtn.classList.toggle('active', showBorders);
-  scheduleDraw();
+  scheduleDrawChunks();
 });
 
-// ブロック未読込ボタン（マップ上のアイコンボタン）
 const unrenderedToggleBtn = document.getElementById('unrendered-toggle-btn');
 const unrenderedLegend    = document.getElementById('unrendered-legend');
-// 描画タブ内のボタン
 const btnShowUnrendered   = document.getElementById('btn-show-unrendered');
 const unrenderedStat      = document.getElementById('unrendered-stat');
 
@@ -388,117 +382,90 @@ function setUnrenderedMode(val) {
   btnShowUnrendered.textContent = '🟥 ブロック未読込表示: ' + (showUnrendered ? 'ON' : 'OFF');
   btnShowUnrendered.classList.toggle('active-warn', showUnrendered);
   if (showUnrendered) updateUnrenderedStat();
-  scheduleDraw();
+  scheduleDrawChunks();
 }
 
 unrenderedToggleBtn.addEventListener('click', () => setUnrenderedMode(!showUnrendered));
 btnShowUnrendered.addEventListener('click', () => setUnrenderedMode(!showUnrendered));
 
 function updateUnrenderedStat() {
-  // MAP_BOUNDS全域のチャンク数と未読込数を集計
-  const totalInBounds = TOTAL_CHUNKS;
-  const rendered = renderedChunkSet.size;
-  const unrendered = totalInBounds - rendered;
-  unrenderedStat.textContent = `未読込: ${unrendered.toLocaleString()} / 全: ${totalInBounds.toLocaleString()}チャンク`;
+  const unrendered = TOTAL_CHUNKS - renderedChunkSet.size;
+  unrenderedStat.textContent = `未読込: ${unrendered.toLocaleString()} / 全: ${TOTAL_CHUNKS.toLocaleString()}チャンク`;
+}
+
+// ─── drawChunks rAFデバウンス ──────────────────────────────────────────────
+// pan/zoom中に毎ピクセル呼ばれるのを 1フレーム 1回に抑える
+let _drawChunksRaf = null;
+function scheduleDrawChunks() {
+  if (_drawChunksRaf) return;
+  _drawChunksRaf = requestAnimationFrame(() => { _drawChunksRaf = null; drawChunks(); });
 }
 
 function drawChunks() {
-  syncCanvasSize();
   const ctx = chunkCanvas.getContext('2d');
-  const cw = chunkCanvas.width, ch = chunkCanvas.height;
-  ctx.clearRect(0, 0, cw, ch);
+  ctx.clearRect(0, 0, chunkCanvas.width, chunkCanvas.height);
 
-  // チャンク1個のピクセルサイズ
-  const chunkPxSize = CHUNK_SIZE * view.scale;
-
-  // ─── ブロック未読込チャンクのハイライト（MAP_BOUNDS全域が対象）───
   if (showUnrendered) {
-    // 表示領域のチャンク範囲を計算
-    const visCX1 = Math.max(MAP_CX1, Math.floor((-view.x) / view.scale / CHUNK_SIZE) - 1);
-    const visCZ1 = Math.max(MAP_CZ1, Math.floor((-view.y) / view.scale / CHUNK_SIZE) - 1);
-    const visCX2 = Math.min(MAP_CX2, Math.ceil((-view.x + cw) / view.scale / CHUNK_SIZE) + 1);
-    const visCZ2 = Math.min(MAP_CZ2, Math.ceil((-view.y + ch) / view.scale / CHUNK_SIZE) + 1);
+    // 可視領域に絞ったループ（元のコードと同じロジックだが scheduleDrawChunks 経由でのみ呼ばれる）
+    const visX1 = -view.x / view.scale + MAP_BOUNDS.x1;
+    const visZ1 = -view.y / view.scale + MAP_BOUNDS.z1;
+    const visX2 = visX1 + chunkCanvas.width / view.scale;
+    const visZ2 = visZ1 + chunkCanvas.height / view.scale;
 
-    // 塗りを一括で（fillStyle/alpha変更を1回に）
-    ctx.fillStyle = '#c0392b';
-    ctx.globalAlpha = 0.45;
+    const visCX1 = Math.max(MAP_CX1, Math.floor(visX1 / CHUNK_SIZE) - 1);
+    const visCX2 = Math.min(MAP_CX2, Math.ceil(visX2 / CHUNK_SIZE) + 1);
+    const visCZ1 = Math.max(MAP_CZ1, Math.floor(visZ1 / CHUNK_SIZE) - 1);
+    const visCZ2 = Math.min(MAP_CZ2, Math.ceil(visZ2 / CHUNK_SIZE) + 1);
+
     for (let cz = visCZ1; cz <= visCZ2; cz++) {
       for (let cx = visCX1; cx <= visCX2; cx++) {
-        if (renderedChunkSet.has(`${cx}_${cz}`)) continue;
-        const px = view.x + (cx * CHUNK_SIZE - MAP_BOUNDS.x1) * view.scale;
-        const py = view.y + (cz * CHUNK_SIZE - MAP_BOUNDS.z1) * view.scale;
-        ctx.fillRect(px, py, chunkPxSize, chunkPxSize);
-      }
-    }
+        const key = `${cx}_${cz}`;
+        if (renderedChunkSet.has(key)) continue;
 
-    // 枠線はズームインしてある程度大きいときだけ描画
-    if (chunkPxSize >= 4) {
-      ctx.strokeStyle = '#ff6b5b';
-      ctx.globalAlpha = 0.7;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (let cz = visCZ1; cz <= visCZ2; cz++) {
-        for (let cx = visCX1; cx <= visCX2; cx++) {
-          if (renderedChunkSet.has(`${cx}_${cz}`)) continue;
-          const px = view.x + (cx * CHUNK_SIZE - MAP_BOUNDS.x1) * view.scale;
-          const py = view.y + (cz * CHUNK_SIZE - MAP_BOUNDS.z1) * view.scale;
-          ctx.rect(px, py, chunkPxSize, chunkPxSize);
+        const sx = cx * CHUNK_SIZE, sz = cz * CHUNK_SIZE;
+        const ex = sx + CHUNK_SIZE, ez = sz + CHUNK_SIZE;
+        const p1 = mcToPixel(sx, sz), p2 = mcToPixel(ex, ez);
+        const w = Math.abs(p2.x - p1.x), h = Math.abs(p2.y - p1.y);
+        const px = Math.min(p1.x, p2.x), py = Math.min(p1.y, p2.y);
+
+        ctx.fillStyle = '#c0392b';
+        ctx.globalAlpha = 0.45;
+        ctx.fillRect(px, py, w, h);
+
+        ctx.strokeStyle = '#ff6b5b';
+        ctx.globalAlpha = 0.7;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(px, py, w, h);
+
+        if (w > 10 && h > 10) {
+          const cx2 = px + w / 2, cy2 = py + h / 2;
+          const r2 = Math.min(w, h) * 0.28;
+          ctx.globalAlpha = 0.6;
+          ctx.strokeStyle = '#ff9999';
+          ctx.lineWidth = Math.max(1, r2 * 0.4);
+          ctx.beginPath();
+          ctx.moveTo(cx2 - r2, cy2 - r2); ctx.lineTo(cx2 + r2, cy2 + r2);
+          ctx.moveTo(cx2 + r2, cy2 - r2); ctx.lineTo(cx2 - r2, cy2 + r2);
+          ctx.stroke();
         }
       }
-      ctx.stroke();
     }
-
-    // × マークはチャンクが十分大きいときだけ
-    if (chunkPxSize >= 12) {
-      ctx.strokeStyle = '#ff9999';
-      ctx.globalAlpha = 0.6;
-      ctx.lineWidth = Math.max(1, chunkPxSize * 0.08);
-      ctx.beginPath();
-      const r2 = chunkPxSize * 0.28;
-      for (let cz = visCZ1; cz <= visCZ2; cz++) {
-        for (let cx = visCX1; cx <= visCX2; cx++) {
-          if (renderedChunkSet.has(`${cx}_${cz}`)) continue;
-          const pcx = view.x + (cx * CHUNK_SIZE + CHUNK_SIZE / 2 - MAP_BOUNDS.x1) * view.scale;
-          const pcy = view.y + (cz * CHUNK_SIZE + CHUNK_SIZE / 2 - MAP_BOUNDS.z1) * view.scale;
-          ctx.moveTo(pcx - r2, pcy - r2); ctx.lineTo(pcx + r2, pcy + r2);
-          ctx.moveTo(pcx + r2, pcy - r2); ctx.lineTo(pcx - r2, pcy + r2);
-        }
-      }
-      ctx.stroke();
-    }
-
     updateUnrenderedStat();
   }
 
-  // ─── 国境（クレーム済みチャンク）の描画 ───
   if (showBorders) {
-    // 国ごとに色をまとめてバッチ描画
     for (const n in allChunkData) {
       const d = allChunkData[n];
-      if (!d.chunks || !d.chunks.length) continue;
+      if (!d.chunks) continue;
       const c = getCountryColor(n);
-
-      // 塗り一括
-      ctx.fillStyle = c;
-      ctx.globalAlpha = 0.5;
       for (const chunk of d.chunks) {
-        const px = view.x + (chunk.cx * CHUNK_SIZE - MAP_BOUNDS.x1) * view.scale;
-        const py = view.y + (chunk.cz * CHUNK_SIZE - MAP_BOUNDS.z1) * view.scale;
-        ctx.fillRect(px, py, chunkPxSize, chunkPxSize);
-      }
-
-      // 枠線一括（ある程度大きいときのみ）
-      if (chunkPxSize >= 3) {
-        ctx.strokeStyle = c;
-        ctx.globalAlpha = 0.8;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        for (const chunk of d.chunks) {
-          const px = view.x + (chunk.cx * CHUNK_SIZE - MAP_BOUNDS.x1) * view.scale;
-          const py = view.y + (chunk.cz * CHUNK_SIZE - MAP_BOUNDS.z1) * view.scale;
-          ctx.rect(px, py, chunkPxSize, chunkPxSize);
-        }
-        ctx.stroke();
+        const sx = chunk.cx * CHUNK_SIZE, sz = chunk.cz * CHUNK_SIZE;
+        const ex = sx + CHUNK_SIZE, ez = sz + CHUNK_SIZE;
+        const p1 = mcToPixel(sx, sz), p2 = mcToPixel(ex, ez);
+        const w = Math.abs(p2.x - p1.x), h = Math.abs(p2.y - p1.y);
+        const px = Math.min(p1.x, p2.x), py = Math.min(p1.y, p2.y);
+        ctx.fillStyle = c; ctx.globalAlpha = 0.5; ctx.fillRect(px, py, w, h);
+        ctx.strokeStyle = c; ctx.globalAlpha = 0.8; ctx.lineWidth = 2; ctx.strokeRect(px, py, w, h);
       }
     }
   }
@@ -602,7 +569,7 @@ function setDetailExpanded(exp, skipFitView) {
   detailExpanded = exp;
   if (exp) { panelDetail.style.maxHeight = detailMaxPx() + 'px'; panelDetail.classList.add('expanded'); handleLabel.textContent = '下にスワイプで閉じる'; }
   else { panelDetail.style.maxHeight = '0px'; panelDetail.classList.remove('expanded'); handleLabel.textContent = '上にスワイプで一覧表示'; }
-  if (!skipFitView) { requestAnimationFrame(() => fitView()); setTimeout(fitView, 340); }
+  if (!skipFitView) { fitView(); }
 }
 
 let hDragging = false, hMoved = false, hStartY = 0, hStartH = 0, hMaxPx = 0;
@@ -618,7 +585,7 @@ function hDragMove(y) {
   const dy = hStartY - y;
   if (Math.abs(dy) > 6) hMoved = true;
   panelDetail.style.maxHeight = Math.min(Math.max(hStartH + dy, 0), hMaxPx) + 'px';
-  requestAnimationFrame(fitView);
+  fitView();
 }
 function hDragEnd() {
   if (!hDragging) return; hDragging = false; panelDetail.style.transition = '';
@@ -648,7 +615,7 @@ function switchTab(name) {
     panelHandle.style.opacity = '.4'; handleLabel.textContent = '';
     if (name === 'render') { panelDetail.style.display = ''; panelHandle.style.opacity = '1'; setDetailExpanded(true); }
     else setDetailExpanded(false);
-  } else { panelDetail.style.display = ''; panelHandle.style.opacity = '1'; requestAnimationFrame(fitView); }
+  } else { panelDetail.style.display = ''; panelHandle.style.opacity = '1'; fitView(); }
 }
 document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
 
@@ -892,7 +859,6 @@ function isWaterChunk(val) {
     id === 'minecraft:bubble_column';
 }
 
-// ブロックデータからレンダリング済みチャンクセットを更新する
 function updateRenderedChunkSet(rawData) {
   renderedChunkSet = new Set();
   for (const key of Object.keys(rawData || {})) {
@@ -902,7 +868,7 @@ function updateRenderedChunkSet(rawData) {
     const cx = Math.floor(bx / CHUNK_SIZE), cz = Math.floor(bz / CHUNK_SIZE);
     renderedChunkSet.add(`${cx}_${cz}`);
   }
-  if (showUnrendered) { updateUnrenderedStat(); scheduleDraw(); }
+  if (showUnrendered) { updateUnrenderedStat(); scheduleDrawChunks(); }
 }
 
 async function loadAndRender() {
@@ -918,7 +884,6 @@ async function loadAndRender() {
     renderStat.textContent = '取得失敗: ' + e.message;
     btnRenderLoad.disabled = false; return;
   }
-  // レンダリング済みチャンクセットを更新
   updateRenderedChunkSet(rawData);
 
   const entries = Object.entries(rawData);
@@ -995,13 +960,14 @@ btnRenderSave.addEventListener('click', saveRenderAsPng);
 // ══════════════════════════════════════════════════════════════════════════════
 let lastAutoScanned = 0;
 const _autoOffscreen = document.createElement('canvas');
-let _lastAutoHash = '';
 
-function makeChunkHash(chunkMap) {
-  const keys = [...chunkMap.keys()].sort();
-  let h = '';
-  for (const k of keys) { const v = chunkMap.get(k); h += k + ':' + (v?.id||'') + ':' + (v?.y??'') + '|'; }
-  return h;
+// ─── autoLoad キャッシュキー ──────────────────────────────────────────────────
+// チャンク数 + lastScanned の組み合わせで変化を検出。
+// 同じキーなら toDataURL() を含む描画処理全体をスキップする。
+let _lastAutoRenderKey = '';
+
+function makeAutoRenderKey(chunkMap, meta) {
+  return `${chunkMap.size}_${meta.lastScanned || ''}`;
 }
 
 async function autoLoadBlockMap() {
@@ -1016,18 +982,7 @@ async function autoLoadBlockMap() {
       return;
     }
 
-    // 自動描画時もレンダリング済みセットを更新
     updateRenderedChunkSet(rawData);
-
-    if (!meta.scanning) {
-      const scanned = meta.lastScanned || 0;
-      if (scanned && scanned <= lastAutoScanned) return;
-      if (scanned) lastAutoScanned = scanned;
-    }
-
-    hdrInfo.textContent = meta.scanning
-      ? `スキャン進行中: 収集中 (${blockCount.toLocaleString()}チャンク取得済み)`
-      : 'マップ描画中...';
 
     const chunkMap = new Map();
     let minCX = Infinity, maxCX = -Infinity, minCZ = Infinity, maxCZ = -Infinity;
@@ -1045,11 +1000,20 @@ async function autoLoadBlockMap() {
 
     if (minCX === Infinity) { hdrInfo.textContent = 'マップ範囲内のブロックデータがありません'; return; }
 
-    if (meta.scanning) {
-      const hash = makeChunkHash(chunkMap);
-      if (hash === _lastAutoHash) { hdrInfo.textContent = `スキャン進行中: 収集中 (${blockCount.toLocaleString()}チャンク取得済み)`; return; }
-      _lastAutoHash = hash;
-    } else { _lastAutoHash = ''; }
+    // ─── キャッシュチェック: チャンク数もタイムスタンプも変わっていなければ描画スキップ ───
+    const renderKey = makeAutoRenderKey(chunkMap, meta);
+    if (renderKey === _lastAutoRenderKey) {
+      // スキャン中だけステータスを更新して終了
+      if (meta.scanning) {
+        hdrInfo.textContent = `スキャン進行中: 収集中 (${blockCount.toLocaleString()}ブロック取得済み)`;
+      }
+      return;
+    }
+    _lastAutoRenderKey = renderKey;
+
+    hdrInfo.textContent = meta.scanning
+      ? `スキャン進行中: 収集中 (${blockCount.toLocaleString()}ブロック取得済み)`
+      : 'マップ描画中...';
 
     const numCX = maxCX - minCX + 1, numCZ = maxCZ - minCZ + 1;
     const chunkPx = Math.max(1, Math.floor(Math.min(2048 / numCX, 2048 / numCZ)));
@@ -1086,7 +1050,7 @@ async function autoLoadBlockMap() {
 
     const dataUrl = _autoOffscreen.toDataURL('image/png');
     renderImageDataURL = dataUrl; btnRenderSave.disabled = false;
-    mapImg.onload = () => { fitView(); scheduleDraw(); };
+    mapImg.onload = () => { fitView(); scheduleDrawChunks(); };
     mapImg.src = dataUrl;
 
     if (meta.lastScanned) {
@@ -1103,9 +1067,16 @@ async function autoLoadBlockMap() {
   }
 }
 
-window.addEventListener('resize', () => { syncCanvasSize(); fitView(); });
+// ─── resize デバウンス ────────────────────────────────────────────────────────
+// ウィンドウリサイズ時に fitView を連打しない
+let _resizeTimer = null;
+window.addEventListener('resize', () => {
+  if (_resizeTimer) clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(() => { _resizeTimer = null; fitView(); }, 100);
+});
+
 window.addEventListener('load', () => {
-  syncCanvasSize(); fitView(); setTimeout(fitView, 50); setTimeout(fitView, 200);
+  fitView();
   fetchChunkData(); setInterval(fetchChunkData, 10000);
   document.getElementById('live-player-list').style.display = 'flex';
   document.getElementById('country-list-wrap').style.display = 'none';
