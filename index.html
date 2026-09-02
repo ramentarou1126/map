@@ -308,6 +308,7 @@ function applyView() {
   const r = mapArea.getBoundingClientRect();
   chunkCanvas.width  = r.width;
   chunkCanvas.height = r.height;
+  _invalidateUnrenderedCache(); // キャンバスサイズ・view変更でキャッシュ無効化
   updateAllMarkers();
   scheduleDrawChunks();
 }
@@ -347,6 +348,51 @@ function makeChunkDataKey(data) {
 
 let renderedChunkSet = new Set();
 
+// ─── 未読込オーバーレイ キャッシュ ───────────────────────────────────────────
+// renderedChunkSet が変わったときだけ再生成。drawChunks では drawImage 1回で済む。
+let _unrenderedCache = null;       // { canvas, scale, tx, ty } | null
+let _unrenderedCacheSetSize = -1;  // 前回の renderedChunkSet.size
+
+function _buildUnrenderedCache() {
+  const w = chunkCanvas.width, h = chunkCanvas.height;
+  if (w === 0 || h === 0) { _unrenderedCache = null; return; }
+  const oc = document.createElement('canvas');
+  oc.width = w; oc.height = h;
+  const ctx = oc.getContext('2d');
+
+  const visX1 = -view.x / view.scale + MAP_BOUNDS.x1;
+  const visZ1 = -view.y / view.scale + MAP_BOUNDS.z1;
+  const visX2 = visX1 + w / view.scale;
+  const visZ2 = visZ1 + h / view.scale;
+  const visCX1 = Math.max(MAP_CX1, Math.floor(visX1 / CHUNK_SIZE) - 1);
+  const visCX2 = Math.min(MAP_CX2, Math.ceil(visX2  / CHUNK_SIZE) + 1);
+  const visCZ1 = Math.max(MAP_CZ1, Math.floor(visZ1 / CHUNK_SIZE) - 1);
+  const visCZ2 = Math.min(MAP_CZ2, Math.ceil(visZ2  / CHUNK_SIZE) + 1);
+
+  ctx.fillStyle   = 'rgba(192,57,43,0.45)';
+  ctx.strokeStyle = 'rgba(255,107,91,0.7)';
+  ctx.lineWidth   = 1;
+
+  for (let cz = visCZ1; cz <= visCZ2; cz++) {
+    for (let cx = visCX1; cx <= visCX2; cx++) {
+      if (renderedChunkSet.has(`${cx}_${cz}`)) continue;
+      const sx = cx * CHUNK_SIZE, sz = cz * CHUNK_SIZE;
+      const p1 = mcToPixel(sx, sz), p2 = mcToPixel(sx + CHUNK_SIZE, sz + CHUNK_SIZE);
+      const pw = Math.abs(p2.x - p1.x), ph2 = Math.abs(p2.y - p1.y);
+      const px = Math.min(p1.x, p2.x), py = Math.min(p1.y, p2.y);
+      ctx.fillRect(px, py, pw, ph2);
+      ctx.strokeRect(px, py, pw, ph2);
+    }
+  }
+  _unrenderedCache = { canvas: oc, scale: view.scale, tx: view.x, ty: view.y };
+  _unrenderedCacheSetSize = renderedChunkSet.size;
+}
+
+function _invalidateUnrenderedCache() {
+  _unrenderedCache = null;
+  _unrenderedCacheSetSize = -1;
+}
+
 async function fetchChunkData() {
   try {
     const data = await fbGet('/chunks');
@@ -381,7 +427,7 @@ function setUnrenderedMode(val) {
   unrenderedLegend.classList.toggle('show', showUnrendered);
   btnShowUnrendered.textContent = '🟥 ブロック未読込表示: ' + (showUnrendered ? 'ON' : 'OFF');
   btnShowUnrendered.classList.toggle('active-warn', showUnrendered);
-  if (showUnrendered) updateUnrenderedStat();
+  if (showUnrendered) { _invalidateUnrenderedCache(); updateUnrenderedStat(); }
   scheduleDrawChunks();
 }
 
@@ -406,50 +452,14 @@ function drawChunks() {
   ctx.clearRect(0, 0, chunkCanvas.width, chunkCanvas.height);
 
   if (showUnrendered) {
-    // 可視領域に絞ったループ（元のコードと同じロジックだが scheduleDrawChunks 経由でのみ呼ばれる）
-    const visX1 = -view.x / view.scale + MAP_BOUNDS.x1;
-    const visZ1 = -view.y / view.scale + MAP_BOUNDS.z1;
-    const visX2 = visX1 + chunkCanvas.width / view.scale;
-    const visZ2 = visZ1 + chunkCanvas.height / view.scale;
-
-    const visCX1 = Math.max(MAP_CX1, Math.floor(visX1 / CHUNK_SIZE) - 1);
-    const visCX2 = Math.min(MAP_CX2, Math.ceil(visX2 / CHUNK_SIZE) + 1);
-    const visCZ1 = Math.max(MAP_CZ1, Math.floor(visZ1 / CHUNK_SIZE) - 1);
-    const visCZ2 = Math.min(MAP_CZ2, Math.ceil(visZ2 / CHUNK_SIZE) + 1);
-
-    for (let cz = visCZ1; cz <= visCZ2; cz++) {
-      for (let cx = visCX1; cx <= visCX2; cx++) {
-        const key = `${cx}_${cz}`;
-        if (renderedChunkSet.has(key)) continue;
-
-        const sx = cx * CHUNK_SIZE, sz = cz * CHUNK_SIZE;
-        const ex = sx + CHUNK_SIZE, ez = sz + CHUNK_SIZE;
-        const p1 = mcToPixel(sx, sz), p2 = mcToPixel(ex, ez);
-        const w = Math.abs(p2.x - p1.x), h = Math.abs(p2.y - p1.y);
-        const px = Math.min(p1.x, p2.x), py = Math.min(p1.y, p2.y);
-
-        ctx.fillStyle = '#c0392b';
-        ctx.globalAlpha = 0.45;
-        ctx.fillRect(px, py, w, h);
-
-        ctx.strokeStyle = '#ff6b5b';
-        ctx.globalAlpha = 0.7;
-        ctx.lineWidth = 1;
-        ctx.strokeRect(px, py, w, h);
-
-        if (w > 10 && h > 10) {
-          const cx2 = px + w / 2, cy2 = py + h / 2;
-          const r2 = Math.min(w, h) * 0.28;
-          ctx.globalAlpha = 0.6;
-          ctx.strokeStyle = '#ff9999';
-          ctx.lineWidth = Math.max(1, r2 * 0.4);
-          ctx.beginPath();
-          ctx.moveTo(cx2 - r2, cy2 - r2); ctx.lineTo(cx2 + r2, cy2 + r2);
-          ctx.moveTo(cx2 + r2, cy2 - r2); ctx.lineTo(cx2 - r2, cy2 + r2);
-          ctx.stroke();
-        }
-      }
-    }
+    // view が変わったか、セットが変わったときだけ再生成
+    const cacheStale = !_unrenderedCache
+      || _unrenderedCacheSetSize !== renderedChunkSet.size
+      || _unrenderedCache.scale !== view.scale
+      || _unrenderedCache.tx !== view.x
+      || _unrenderedCache.ty !== view.y;
+    if (cacheStale) _buildUnrenderedCache();
+    if (_unrenderedCache) ctx.drawImage(_unrenderedCache.canvas, 0, 0);
     updateUnrenderedStat();
   }
 
@@ -868,6 +878,7 @@ function updateRenderedChunkSet(rawData) {
     const cx = Math.floor(bx / CHUNK_SIZE), cz = Math.floor(bz / CHUNK_SIZE);
     renderedChunkSet.add(`${cx}_${cz}`);
   }
+  _invalidateUnrenderedCache(); // データ更新時はキャッシュ破棄
   if (showUnrendered) { updateUnrenderedStat(); scheduleDrawChunks(); }
 }
 
