@@ -180,7 +180,7 @@ input[type=number]{background:#0a0d08;border:2px solid var(--panel-border);color
 <script>
 'use strict';
 
-const FIREBASE_URL = 'https://menearths4map-default-rtdb.asia-southeast1.firebasedatabase.app';
+const FIREBASE_URL = 'https://map.hp7vvyvc25.workers.dev';
 async function fbGet(path) {
   const res = await fetch(`${FIREBASE_URL}${path}.json`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
