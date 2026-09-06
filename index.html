@@ -308,8 +308,7 @@ function applyView() {
   const r = mapArea.getBoundingClientRect();
   chunkCanvas.width  = r.width;
   chunkCanvas.height = r.height;
-  _invalidateUnrenderedCache();
-  requestUnrenderedRebuild(false); // 間引きつつ再構築を予約(パン/ズーム中に毎フレーム再構築しない)
+  _invalidateUnrenderedCache(); // キャンバスサイズ・view変更でキャッシュ無効化
   updateAllMarkers();
   scheduleDrawChunks();
 }
@@ -349,29 +348,14 @@ function makeChunkDataKey(data) {
 
 let renderedChunkSet = new Set();
 
-// ─── 未読込オーバーレイ キャッシュ（間引き再構築） ───────────────────────────
-// 過去の実装は「view(スケール/座標)が1pxでも変わったら再生成」だったため、
-// ドラッグ中に毎フレーム全チャンクを再走査していて重かった。
-// その後「全チャンクを1チャンク=1ピクセルの小画像にして drawImage で拡大する」
-// 方式を試したが、拡大率が大きいと端末によっては補間(にじみ)でチャンクの境目が
-// 潰れ、「全体が真っ赤/一部だけ薄く透ける」ように見える不具合が出た。
-// → 描画方法は元の「見えている範囲だけ実座標で fillRect/strokeRect する」方式
-//   (拡大なし・にじまない・チャンク境界がくっきり出る)に戻し、
-//   代わりに実際の再構築を最大でも約150msに1回に間引く。
-//   パン中は多少カクつくが、常に等倍描画なのでにじまず、負荷も大幅に軽い。
-let _unrenderedCache = null;       // { canvas } | null
-let _unrenderedThrottleTimer = null;
-const UNRENDERED_REBUILD_INTERVAL_MS = 150;
-
-function _invalidateUnrenderedCache() {
-  // 古いキャッシュはすぐに捨てない(捨てると次の再構築が終わるまで
-  // 一瞬オーバーレイが消えてチラつくため)。再構築予約は
-  // requestUnrenderedRebuild() 側で行う。
-}
+// ─── 未読込オーバーレイ キャッシュ ───────────────────────────────────────────
+// renderedChunkSet が変わったときだけ再生成。drawChunks では drawImage 1回で済む。
+let _unrenderedCache = null;       // { canvas, scale, tx, ty } | null
+let _unrenderedCacheSetSize = -1;  // 前回の renderedChunkSet.size
 
 function _buildUnrenderedCache() {
   const w = chunkCanvas.width, h = chunkCanvas.height;
-  if (w === 0 || h === 0) return;
+  if (w === 0 || h === 0) { _unrenderedCache = null; return; }
   const oc = document.createElement('canvas');
   oc.width = w; oc.height = h;
   const ctx = oc.getContext('2d');
@@ -400,26 +384,13 @@ function _buildUnrenderedCache() {
       ctx.strokeRect(px, py, pw, ph2);
     }
   }
-  _unrenderedCache = { canvas: oc };
+  _unrenderedCache = { canvas: oc, scale: view.scale, tx: view.x, ty: view.y };
+  _unrenderedCacheSetSize = renderedChunkSet.size;
 }
 
-// showUnrendered が ON のときだけ再構築を予約する。
-// immediate=true は間引かず即座に作り直す(トグルON直後・データ更新直後用)。
-// immediate=false は間引き予約(パン/ズーム中用)。
-function requestUnrenderedRebuild(immediate) {
-  if (!showUnrendered) return;
-  if (immediate) {
-    if (_unrenderedThrottleTimer) { clearTimeout(_unrenderedThrottleTimer); _unrenderedThrottleTimer = null; }
-    _buildUnrenderedCache();
-    scheduleDrawChunks();
-    return;
-  }
-  if (_unrenderedThrottleTimer) return; // 既に次回分が予約済み
-  _unrenderedThrottleTimer = setTimeout(() => {
-    _unrenderedThrottleTimer = null;
-    _buildUnrenderedCache();
-    scheduleDrawChunks();
-  }, UNRENDERED_REBUILD_INTERVAL_MS);
+function _invalidateUnrenderedCache() {
+  _unrenderedCache = null;
+  _unrenderedCacheSetSize = -1;
 }
 
 async function fetchChunkData() {
@@ -456,7 +427,7 @@ function setUnrenderedMode(val) {
   unrenderedLegend.classList.toggle('show', showUnrendered);
   btnShowUnrendered.textContent = '🟥 ブロック未読込表示: ' + (showUnrendered ? 'ON' : 'OFF');
   btnShowUnrendered.classList.toggle('active-warn', showUnrendered);
-  if (showUnrendered) { requestUnrenderedRebuild(true); updateUnrenderedStat(); }
+  if (showUnrendered) { _invalidateUnrenderedCache(); updateUnrenderedStat(); }
   scheduleDrawChunks();
 }
 
@@ -481,13 +452,14 @@ function drawChunks() {
   ctx.clearRect(0, 0, chunkCanvas.width, chunkCanvas.height);
 
   if (showUnrendered) {
-    // renderedChunkSet が変わった時だけ再構築（view には依存しない）
-    if (_unrenderedGridDirty || !_unrenderedGridCanvas) _buildUnrenderedGrid();
-    const p1 = mcToPixel(MAP_CX1 * CHUNK_SIZE, MAP_CZ1 * CHUNK_SIZE);
-    const p2 = mcToPixel((MAP_CX2 + 1) * CHUNK_SIZE, (MAP_CZ2 + 1) * CHUNK_SIZE);
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(_unrenderedGridCanvas, p1.x, p1.y, p2.x - p1.x, p2.y - p1.y);
-    ctx.imageSmoothingEnabled = true;
+    // view が変わったか、セットが変わったときだけ再生成
+    const cacheStale = !_unrenderedCache
+      || _unrenderedCacheSetSize !== renderedChunkSet.size
+      || _unrenderedCache.scale !== view.scale
+      || _unrenderedCache.tx !== view.x
+      || _unrenderedCache.ty !== view.y;
+    if (cacheStale) _buildUnrenderedCache();
+    if (_unrenderedCache) ctx.drawImage(_unrenderedCache.canvas, 0, 0);
     updateUnrenderedStat();
   }
 
@@ -906,7 +878,7 @@ function updateRenderedChunkSet(rawData) {
     const cx = Math.floor(bx / CHUNK_SIZE), cz = Math.floor(bz / CHUNK_SIZE);
     renderedChunkSet.add(`${cx}_${cz}`);
   }
-  _invalidateUnrenderedCache(); // データ更新時はグリッドを再構築対象にする
+  _invalidateUnrenderedCache(); // データ更新時はキャッシュ破棄
   if (showUnrendered) { updateUnrenderedStat(); scheduleDrawChunks(); }
 }
 
