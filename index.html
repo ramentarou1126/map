@@ -244,10 +244,12 @@ function blockColor(typeId) {
   return `#${((h&0xff0000)>>16).toString(16).padStart(2,'0')}${((h&0xff00)>>8).toString(16).padStart(2,'0')}${(h&0xff).toString(16).padStart(2,'0')}`;
 }
 
-const countryColors = {};
+// 国境の色: サーバー(国王が /cm → 国の情報 で設定。未設定の国は最初にランダムで決まって固定)が
+// /chunks/{国名}/color に "#rrggbb" で送ってくる。まだ送られていない場合だけ、国名から決めた色で代用する。
 function getCountryColor(n) {
-  if (!countryColors[n]) { const h = hueFromString(n); countryColors[n] = `hsl(${h},60%,45%)`; }
-  return countryColors[n];
+  const c = allChunkData[n] && allChunkData[n].color;
+  if (typeof c === 'string' && /^#[0-9a-fA-F]{6}$/.test(c)) return c;
+  return `hsl(${hueFromString(n)},60%,45%)`;
 }
 function hueFromString(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h + s.charCodeAt(i) * 7) % 360; return h; }
 
@@ -341,7 +343,7 @@ let allChunkData = {};
 
 let _lastChunkDataKey = '';
 function makeChunkDataKey(data) {
-  return Object.keys(data || {}).sort().map(n => n + ':' + (data[n].chunkCount || 0)).join('|');
+  return Object.keys(data || {}).sort().map(n => n + ':' + (data[n].chunkCount || 0) + ':' + (data[n].color || '')).join('|');
 }
 
 let renderedChunkSet = new Set();
@@ -832,6 +834,11 @@ function updateLiveMarkerPositions() {
   Object.values(liveMarkers).forEach(e => { const p = mcToPixel(e.x, e.z); e.el.style.left = p.x + 'px'; e.el.style.top = p.y + 'px'; });
 }
 
+function hasPosition(p) {
+  return p && typeof p.x === 'number' && typeof p.z === 'number' && !p.invisible;
+}
+function isOnlinePlayer(p) { return p && p.online !== false; }
+
 function buildPlayerListItem(id, p) {
   const item = document.createElement('div'); item.className = 'live-list-item';
   const av = document.createElement('div'); av.className = 'avatar';
@@ -839,21 +846,19 @@ function buildPlayerListItem(id, p) {
   setIconSkin(av, id, p.skin, 28);
   const info = document.createElement('div'); info.className = 'info';
   const ne = document.createElement('div'); ne.className = 'mcid'; ne.textContent = id;
-  const co = document.createElement('div'); co.className = 'coords'; co.textContent = `X: ${Math.round(p.x)}  Z: ${Math.round(p.z)}`;
+  const co = document.createElement('div'); co.className = 'coords'; const pos = hasPosition(p);
+  co.textContent = pos ? `X: ${Math.round(p.x)}  Z: ${Math.round(p.z)}` : '座標非公開';
   info.append(ne, co); item.append(av, info);
-  item.addEventListener('click', () => zoomToMcCoord(p.x, p.z, 6));
+  if (pos) item.addEventListener('click', () => zoomToMcCoord(p.x, p.z, 6));
+  else item.style.cursor = 'default';
   return item;
 }
 
-// 透明化(invisibility)エフェクト中のプレイヤーは地図に出さない。
-// （サーバー側でも送らないが、古いデータが残っていても出ないよう、こちらでも除外する）
-function isVisiblePlayer(p) {
-  return p && typeof p.x === 'number' && typeof p.z === 'number' && !p.invisible && p.online !== false;
-}
-
+// 透明化(invisibility)エフェクト中のプレイヤーは、地図の印と座標だけ隠す（サーバーが座標を送らない）。
+// オンライン一覧には残し、「座標非公開」と表示する。
 function renderLivePlayerList(data) {
   livePlayerListEl.innerHTML = '';
-  const ids = Object.keys(data || {}).filter(id => isVisiblePlayer(data[id]) && isInsideMapBounds(data[id].x, data[id].z)).sort();
+  const ids = Object.keys(data || {}).filter(id => isOnlinePlayer(data[id]) && (!hasPosition(data[id]) || isInsideMapBounds(data[id].x, data[id].z))).sort();
   if (!ids.length) {
     const e = document.createElement('div'); e.className = 'live-list-empty'; e.textContent = 'オンラインのプレイヤーがいません'; livePlayerListEl.appendChild(e);
   } else { ids.forEach(id => livePlayerListEl.appendChild(buildPlayerListItem(id, data[id]))); }
@@ -861,10 +866,13 @@ function renderLivePlayerList(data) {
 async function refreshLive() {
   try {
     const data = await fbGet('/players');
-    const seen = {};
+    const seen = {};      // 地図に印を出す人（座標あり）
+    let online = 0;       // オンラインの人数（透明化中の人も含む）
     Object.keys(data || {}).forEach(id => {
       const p = data[id];
-      if (!isVisiblePlayer(p)) return;
+      if (!isOnlinePlayer(p)) return;
+      online++;
+      if (!hasPosition(p)) return;
       seen[id] = true;
       if (isInsideMapBounds(p.x, p.z)) upsertLiveMarker(id, p.x, p.z, p.skin);
       else removeLiveMarker(id);
@@ -872,10 +880,10 @@ async function refreshLive() {
     Object.keys(liveMarkers).forEach(id => { if (!seen[id]) removeLiveMarker(id); });
     renderLivePlayerList(data || {});
     liveStatusChip.textContent = '接続中';
-    liveCountChip.textContent = 'プレイヤー: ' + Object.keys(seen).length + '人';
+    liveCountChip.textContent = 'プレイヤー: ' + online + '人';
   } catch (e) { liveStatusChip.textContent = '接続エラー'; showError('プレイヤー情報の取得に失敗: ' + e.message); }
 }
-function startLive() { if (liveTimer) clearInterval(liveTimer); liveStatusChip.textContent = '接続中...'; refreshLive(); liveTimer = setInterval(refreshLive, 2000); }
+function startLive() { if (liveTimer) clearInterval(liveTimer); liveStatusChip.textContent = '接続中...'; refreshLive(); liveTimer = setInterval(refreshLive, 10000); }
 function stopLive() { if (liveTimer) clearInterval(liveTimer); liveTimer = null; clearAllLiveMarkers(); livePlayerListEl.innerHTML = ''; liveStatusChip.textContent = '未接続'; liveCountChip.textContent = 'プレイヤー: 0人'; }
 function setLive(on) {
   liveActive = on;
