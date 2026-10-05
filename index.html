@@ -935,7 +935,7 @@ async function loadAndRender() {
 
   const entries = Object.entries(rawData);
   if (!entries.length) {
-    renderStat.textContent = 'データなし。マイクラで /earth:rendering を実行してください。';
+    renderStat.textContent = 'データなし。マイクラで /menearth:rendering を実行してください。';
     btnRenderLoad.disabled = false; return;
   }
   renderStat.textContent = `描画中... (${entries.length}ブロック)`;
@@ -1022,7 +1022,7 @@ async function autoLoadBlockMap() {
     const blockCount = Object.keys(rawData).length;
 
     if (blockCount === 0) {
-      hdrInfo.textContent = 'ブロックデータ未生成 — マイクラで /earth:rendering を実行してください';
+      hdrInfo.textContent = 'ブロックデータ未生成 — マイクラで /menearth:rendering を実行してください';
       return;
     }
 
