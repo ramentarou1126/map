@@ -36,7 +36,7 @@
 .player-mark{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;pointer-events:none;z-index:20}
 .player-mark .label{font-family:var(--font-pixel);font-size:8px;color:#fff;background:rgba(0,0,0,.75);padding:3px 6px;border-radius:2px;margin-bottom:4px;white-space:nowrap;border:1px solid var(--gold-dark)}
 .player-mark .icon{width:32px;height:32px;border:3px solid var(--gold);border-radius:3px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:16px;position:relative;overflow:hidden;box-shadow:0 0 10px rgba(240,196,25,.5),0 3px 6px rgba(0,0,0,.5)}
-.player-mark .icon img{width:100%;height:100%;object-fit:cover;image-rendering:pixelated;pointer-events:none}
+.player-mark .icon img,.player-mark .icon canvas,.avatar canvas{width:100%;height:100%;object-fit:cover;image-rendering:pixelated;pointer-events:none;display:block}
 #tooltip{position:absolute;background:rgba(10,14,10,.95);border:2px solid var(--emerald);color:var(--emerald);font-family:var(--font-pixel);font-size:9px;padding:6px 10px;border-radius:3px;pointer-events:none;display:none;z-index:30;white-space:nowrap}
 #country-popup{position:absolute;background:rgba(10,14,10,.98);border:2px solid var(--gold);color:var(--text-main);font-family:var(--font-body);font-size:14px;padding:12px 16px 10px;border-radius:4px;z-index:35;text-align:center;min-width:140px;display:none}
 #country-popup .country-name{font-family:var(--font-pixel);font-size:11px;color:var(--gold);margin-bottom:6px}
@@ -138,8 +138,8 @@ input[type=number]{background:#0a0d08;border:2px solid var(--panel-border);color
     </div>
     <div class="tab-content active" id="tab-live">
       <div class="field-row">
-        <button type="button" class="action-btn" id="btn-live-toggle">ライブ表示: OFF</button>
-        <div class="info-chip" id="live-status">未接続</div>
+        <button type="button" class="action-btn danger" id="btn-live-toggle">ライブ表示: ON</button>
+        <div class="info-chip" id="live-status">接続中...</div>
       </div>
       <div class="field-row">
         <div class="info-chip" id="live-count">プレイヤー: 0人</div>
@@ -274,7 +274,6 @@ function showError(msg) {
 function getPanelHeight() { return document.getElementById('panel').getBoundingClientRect().height || 0; }
 
 // ─── fitView デバウンス ───────────────────────────────────────────────────────
-// 同一フレーム内での多重呼び出しを rAF 1回にまとめる
 let _fitViewRaf = null;
 function fitView() {
   if (_fitViewRaf) return;
@@ -308,7 +307,7 @@ function applyView() {
   const r = mapArea.getBoundingClientRect();
   chunkCanvas.width  = r.width;
   chunkCanvas.height = r.height;
-  _invalidateUnrenderedCache(); // キャンバスサイズ・view変更でキャッシュ無効化
+  _invalidateUnrenderedCache();
   updateAllMarkers();
   scheduleDrawChunks();
 }
@@ -340,7 +339,6 @@ function isInsideMapBounds(x, z) {
 // ══════════════════════════════════════════════════════════════════════════════
 let allChunkData = {};
 
-// 差分検出: 全JSON stringify → 国名+チャンク数のキー比較に変更（大幅に軽量化）
 let _lastChunkDataKey = '';
 function makeChunkDataKey(data) {
   return Object.keys(data || {}).sort().map(n => n + ':' + (data[n].chunkCount || 0)).join('|');
@@ -348,10 +346,8 @@ function makeChunkDataKey(data) {
 
 let renderedChunkSet = new Set();
 
-// ─── 未読込オーバーレイ キャッシュ ───────────────────────────────────────────
-// renderedChunkSet が変わったときだけ再生成。drawChunks では drawImage 1回で済む。
-let _unrenderedCache = null;       // { canvas, scale, tx, ty } | null
-let _unrenderedCacheSetSize = -1;  // 前回の renderedChunkSet.size
+let _unrenderedCache = null;
+let _unrenderedCacheSetSize = -1;
 
 function _buildUnrenderedCache() {
   const w = chunkCanvas.width, h = chunkCanvas.height;
@@ -397,7 +393,7 @@ async function fetchChunkData() {
   try {
     const data = await fbGet('/chunks');
     const newKey = makeChunkDataKey(data);
-    if (newKey === _lastChunkDataKey) return; // 変化なし → 何もしない
+    if (newKey === _lastChunkDataKey) return;
     _lastChunkDataKey = newKey;
     allChunkData = data || {};
     renderCountryList();
@@ -439,8 +435,6 @@ function updateUnrenderedStat() {
   unrenderedStat.textContent = `未読込: ${unrendered.toLocaleString()} / 全: ${TOTAL_CHUNKS.toLocaleString()}チャンク`;
 }
 
-// ─── drawChunks rAFデバウンス ──────────────────────────────────────────────
-// pan/zoom中に毎ピクセル呼ばれるのを 1フレーム 1回に抑える
 let _drawChunksRaf = null;
 function scheduleDrawChunks() {
   if (_drawChunksRaf) return;
@@ -452,7 +446,6 @@ function drawChunks() {
   ctx.clearRect(0, 0, chunkCanvas.width, chunkCanvas.height);
 
   if (showUnrendered) {
-    // view が変わったか、セットが変わったときだけ再生成
     const cacheStale = !_unrenderedCache
       || _unrenderedCacheSetSize !== renderedChunkSet.size
       || _unrenderedCache.scale !== view.scale
@@ -778,19 +771,57 @@ const liveStatusChip   = document.getElementById('live-status');
 const liveCountChip    = document.getElementById('live-count');
 const livePlayerListEl = document.getElementById('live-player-list');
 
-function upsertLiveMarker(id, x, z) {
+// ─── スキンの顔アイコン ──────────────────────────────────────────────────────
+// サーバー(firebase_sync.js)が Geyser Global API から調べたスキン画像ID(texture_id)を
+// players/{MCID}/skin に載せて送ってくる。ここではそのスキン画像から「顔」だけを切り抜く。
+//   顔: (8,8) 8x8 ／ 帽子(上着)レイヤー: (40,8) 8x8  → 拡大して重ねる
+// 画像は canvas に描くだけ（ピクセルは読まない）ので CORS の問題は起きない。
+const SKIN_URL = id => 'https://textures.minecraft.net/texture/' + encodeURIComponent(id);
+const skinImgCache = {}; // skinId -> Promise<HTMLImageElement|null>
+function loadSkinImage(skinId) {
+  if (!skinImgCache[skinId]) {
+    skinImgCache[skinId] = new Promise(resolve => {
+      const im = new Image();
+      im.onload = () => resolve(im);
+      im.onerror = () => resolve(null);
+      im.src = SKIN_URL(skinId);
+    });
+  }
+  return skinImgCache[skinId];
+}
+function drawHead(skinImg, size) {
+  const c = document.createElement('canvas');
+  c.width = size; c.height = size;
+  const g = c.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  g.drawImage(skinImg, 8, 8, 8, 8, 0, 0, size, size);
+  if (skinImg.width >= 64) g.drawImage(skinImg, 40, 8, 8, 8, 0, 0, size, size);
+  return c;
+}
+/** el(アイコン枠)に、頭文字 → スキン顔 の順で表示する。スキンが無ければ従来の頭文字のまま。 */
+function setIconSkin(el, id, skinId, size) {
+  if (!skinId) return;
+  if (el.dataset.skin === skinId) return;
+  el.dataset.skin = skinId;
+  loadSkinImage(skinId).then(im => {
+    if (!im || el.dataset.skin !== skinId) return;
+    el.textContent = '';
+    el.style.background = '#222';
+    el.appendChild(drawHead(im, size));
+  });
+}
+
+function upsertLiveMarker(id, x, z, skinId) {
   let e = liveMarkers[id];
   if (!e) {
     const el = document.createElement('div'); el.className = 'player-mark live-mark';
     const lb = document.createElement('div'); lb.className = 'label'; lb.textContent = id;
     const ic = document.createElement('div'); ic.className = 'icon';
     ic.style.background = `hsl(${hueFromString(id)},55%,40%)`; ic.textContent = id.charAt(0).toUpperCase();
-    const ai = new Image(); ai.alt = id;
-    ai.onload = () => { ic.textContent = ''; ic.appendChild(ai); };
-    ai.src = 'https://crafatar.com/avatars/' + encodeURIComponent(id) + '?size=32&overlay';
     el.append(lb, ic); mapArea.appendChild(el);
-    e = { el }; liveMarkers[id] = e;
+    e = { el, ic }; liveMarkers[id] = e;
   }
+  setIconSkin(e.ic, id, skinId, 32);
   e.x = x; e.z = z;
   const p = mcToPixel(x, z);
   e.el.style.left = p.x + 'px'; e.el.style.top = p.y + 'px';
@@ -805,9 +836,7 @@ function buildPlayerListItem(id, p) {
   const item = document.createElement('div'); item.className = 'live-list-item';
   const av = document.createElement('div'); av.className = 'avatar';
   av.style.background = `hsl(${hueFromString(id)},55%,40%)`; av.textContent = id.charAt(0).toUpperCase();
-  const ai = new Image(); ai.alt = id;
-  ai.onload = () => { av.textContent = ''; av.appendChild(ai); };
-  ai.src = 'https://crafatar.com/avatars/' + encodeURIComponent(id) + '?size=28&overlay';
+  setIconSkin(av, id, p.skin, 28);
   const info = document.createElement('div'); info.className = 'info';
   const ne = document.createElement('div'); ne.className = 'mcid'; ne.textContent = id;
   const co = document.createElement('div'); co.className = 'coords'; co.textContent = `X: ${Math.round(p.x)}  Z: ${Math.round(p.z)}`;
@@ -815,9 +844,16 @@ function buildPlayerListItem(id, p) {
   item.addEventListener('click', () => zoomToMcCoord(p.x, p.z, 6));
   return item;
 }
+
+// 透明化(invisibility)エフェクト中のプレイヤーは地図に出さない。
+// （サーバー側でも送らないが、古いデータが残っていても出ないよう、こちらでも除外する）
+function isVisiblePlayer(p) {
+  return p && typeof p.x === 'number' && typeof p.z === 'number' && !p.invisible && p.online !== false;
+}
+
 function renderLivePlayerList(data) {
   livePlayerListEl.innerHTML = '';
-  const ids = Object.keys(data || {}).filter(id => data[id] && typeof data[id].x === 'number' && typeof data[id].z === 'number' && isInsideMapBounds(data[id].x, data[id].z)).sort();
+  const ids = Object.keys(data || {}).filter(id => isVisiblePlayer(data[id]) && isInsideMapBounds(data[id].x, data[id].z)).sort();
   if (!ids.length) {
     const e = document.createElement('div'); e.className = 'live-list-empty'; e.textContent = 'オンラインのプレイヤーがいません'; livePlayerListEl.appendChild(e);
   } else { ids.forEach(id => livePlayerListEl.appendChild(buildPlayerListItem(id, data[id]))); }
@@ -828,9 +864,9 @@ async function refreshLive() {
     const seen = {};
     Object.keys(data || {}).forEach(id => {
       const p = data[id];
-      if (!p || typeof p.x !== 'number' || typeof p.z !== 'number') return;
+      if (!isVisiblePlayer(p)) return;
       seen[id] = true;
-      if (isInsideMapBounds(p.x, p.z)) upsertLiveMarker(id, p.x, p.z);
+      if (isInsideMapBounds(p.x, p.z)) upsertLiveMarker(id, p.x, p.z, p.skin);
       else removeLiveMarker(id);
     });
     Object.keys(liveMarkers).forEach(id => { if (!seen[id]) removeLiveMarker(id); });
@@ -841,14 +877,14 @@ async function refreshLive() {
 }
 function startLive() { if (liveTimer) clearInterval(liveTimer); liveStatusChip.textContent = '接続中...'; refreshLive(); liveTimer = setInterval(refreshLive, 2000); }
 function stopLive() { if (liveTimer) clearInterval(liveTimer); liveTimer = null; clearAllLiveMarkers(); livePlayerListEl.innerHTML = ''; liveStatusChip.textContent = '未接続'; liveCountChip.textContent = 'プレイヤー: 0人'; }
-liveToggleBtn.addEventListener('click', () => {
-  liveActive = !liveActive;
-  if (liveActive) { liveToggleBtn.textContent = 'ライブ表示: ON'; liveToggleBtn.classList.add('danger'); startLive(); }
-  else { liveToggleBtn.textContent = 'ライブ表示: OFF'; liveToggleBtn.classList.remove('danger'); stopLive(); }
-});
-document.getElementById('tab-btn-players').addEventListener('click', () => {
-  if (!liveActive) { liveActive = true; liveToggleBtn.textContent = 'ライブ表示: ON'; liveToggleBtn.classList.add('danger'); startLive(); }
-});
+function setLive(on) {
+  liveActive = on;
+  liveToggleBtn.textContent = 'ライブ表示: ' + (on ? 'ON' : 'OFF');
+  liveToggleBtn.classList.toggle('danger', on);
+  if (on) startLive(); else stopLive();
+}
+liveToggleBtn.addEventListener('click', () => setLive(!liveActive));
+document.getElementById('tab-btn-players').addEventListener('click', () => { if (!liveActive) setLive(true); });
 
 // ══════════════════════════════════════════════════════════════════════════════
 // 描画タブ（手動）— Firebase直接
@@ -878,7 +914,7 @@ function updateRenderedChunkSet(rawData) {
     const cx = Math.floor(bx / CHUNK_SIZE), cz = Math.floor(bz / CHUNK_SIZE);
     renderedChunkSet.add(`${cx}_${cz}`);
   }
-  _invalidateUnrenderedCache(); // データ更新時はキャッシュ破棄
+  _invalidateUnrenderedCache();
   if (showUnrendered) { updateUnrenderedStat(); scheduleDrawChunks(); }
 }
 
@@ -972,9 +1008,6 @@ btnRenderSave.addEventListener('click', saveRenderAsPng);
 let lastAutoScanned = 0;
 const _autoOffscreen = document.createElement('canvas');
 
-// ─── autoLoad キャッシュキー ──────────────────────────────────────────────────
-// チャンク数 + lastScanned の組み合わせで変化を検出。
-// 同じキーなら toDataURL() を含む描画処理全体をスキップする。
 let _lastAutoRenderKey = '';
 
 function makeAutoRenderKey(chunkMap, meta) {
@@ -1011,10 +1044,8 @@ async function autoLoadBlockMap() {
 
     if (minCX === Infinity) { hdrInfo.textContent = 'マップ範囲内のブロックデータがありません'; return; }
 
-    // ─── キャッシュチェック: チャンク数もタイムスタンプも変わっていなければ描画スキップ ───
     const renderKey = makeAutoRenderKey(chunkMap, meta);
     if (renderKey === _lastAutoRenderKey) {
-      // スキャン中だけステータスを更新して終了
       if (meta.scanning) {
         hdrInfo.textContent = `スキャン進行中: 収集中 (${blockCount.toLocaleString()}ブロック取得済み)`;
       }
@@ -1078,8 +1109,6 @@ async function autoLoadBlockMap() {
   }
 }
 
-// ─── resize デバウンス ────────────────────────────────────────────────────────
-// ウィンドウリサイズ時に fitView を連打しない
 let _resizeTimer = null;
 window.addEventListener('resize', () => {
   if (_resizeTimer) clearTimeout(_resizeTimer);
@@ -1092,6 +1121,7 @@ window.addEventListener('load', () => {
   document.getElementById('live-player-list').style.display = 'flex';
   document.getElementById('country-list-wrap').style.display = 'none';
   document.getElementById('render-canvas-wrap').style.display = 'none';
+  setLive(true); // プレイヤー位置表示は最初からON
   let _autoLoadTimer = null;
   async function scheduleAutoLoad() {
     await autoLoadBlockMap();
