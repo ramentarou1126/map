@@ -403,17 +403,30 @@ async function fetchChunkData() {
   } catch (e) { console.warn('チャンクデータ取得失敗:', e); }
 }
 
-let showBorders = true;
 let showUnrendered = false;
-// 国の塗りの濃さ（薄め）と、外周線の濃さ
-const COUNTRY_FILL_ALPHA   = 0.2;
-const COUNTRY_BORDER_ALPHA = 0.9;
+
+// 国境の表示モード（ボタンで順番に切り替え）
+//   outer : 外周モード（デフォルト）… 塗りは薄く、領土の最外周だけ線
+//   chunk : チャンクモード … 塗りを濃く、チャンクごとの線と継ぎ目を表示
+//   off   : 非表示
+const BORDER_MODES = [
+  { key: 'outer', icon: '🗺', title: '国境: 外周モード', fillAlpha: 0.2, borderAlpha: 0.9 },
+  { key: 'chunk', icon: '▦',  title: '国境: チャンクモード', fillAlpha: 0.5, borderAlpha: 0.8 },
+  { key: 'off',   icon: '⬜', title: '国境: 非表示', fillAlpha: 0, borderAlpha: 0 },
+];
+let borderModeIdx = 0;
 
 const borderToggleBtn = document.getElementById('border-toggle-btn');
-borderToggleBtn.classList.add('active');
+function applyBorderModeUI() {
+  const m = BORDER_MODES[borderModeIdx];
+  borderToggleBtn.textContent = m.icon;
+  borderToggleBtn.title = m.title;
+  borderToggleBtn.classList.toggle('active', m.key !== 'off');
+}
+applyBorderModeUI();
 borderToggleBtn.addEventListener('click', () => {
-  showBorders = !showBorders;
-  borderToggleBtn.classList.toggle('active', showBorders);
+  borderModeIdx = (borderModeIdx + 1) % BORDER_MODES.length;
+  applyBorderModeUI();
   scheduleDrawChunks();
 });
 
@@ -461,8 +474,9 @@ function drawChunks() {
     updateUnrenderedStat();
   }
 
-  if (showBorders) {
-    // 塗りは薄く、線は領土の「最外周」だけ引く（チャンクの内側の格子線は出さない）
+  const mode = BORDER_MODES[borderModeIdx];
+  if (mode.key === 'outer') {
+    // 外周モード: 塗りは薄く、線は領土の「最外周」だけ（チャンクの内側の格子線は出さない）
     const pxOf = x => view.x + (x - MAP_BOUNDS.x1) * view.scale;
     const pzOf = z => view.y + (z - MAP_BOUNDS.z1) * view.scale;
     for (const n in allChunkData) {
@@ -478,7 +492,7 @@ function drawChunks() {
         ctx.rect(x0, z0, CHUNK_SIZE * view.scale, CHUNK_SIZE * view.scale);
       }
       ctx.fillStyle = c;
-      ctx.globalAlpha = COUNTRY_FILL_ALPHA;
+      ctx.globalAlpha = mode.fillAlpha;
       ctx.fill();
 
       // 2) 外周: 隣が同じ国でない辺だけ線を引く
@@ -491,9 +505,25 @@ function drawChunks() {
         if (!owned.has(`${ch.cx}_${ch.cz + 1}`)) { ctx.moveTo(pxOf(sx), pzOf(ez)); ctx.lineTo(pxOf(ex), pzOf(ez)); }   // 南
       }
       ctx.strokeStyle = c;
-      ctx.globalAlpha = COUNTRY_BORDER_ALPHA;
+      ctx.globalAlpha = mode.borderAlpha;
       ctx.lineWidth = 2;
       ctx.stroke();
+    }
+  } else if (mode.key === 'chunk') {
+    // チャンクモード: 塗りは濃いめ、チャンクごとに線を引く（継ぎ目も見える）
+    for (const n in allChunkData) {
+      const d = allChunkData[n];
+      if (!d.chunks) continue;
+      const c = getCountryColor(n);
+      for (const chunk of d.chunks) {
+        const sx = chunk.cx * CHUNK_SIZE, sz = chunk.cz * CHUNK_SIZE;
+        const ex = sx + CHUNK_SIZE, ez = sz + CHUNK_SIZE;
+        const p1 = mcToPixel(sx, sz), p2 = mcToPixel(ex, ez);
+        const w = Math.abs(p2.x - p1.x), h = Math.abs(p2.y - p1.y);
+        const px = Math.min(p1.x, p2.x), py = Math.min(p1.y, p2.y);
+        ctx.fillStyle = c; ctx.globalAlpha = mode.fillAlpha; ctx.fillRect(px, py, w, h);
+        ctx.strokeStyle = c; ctx.globalAlpha = mode.borderAlpha; ctx.lineWidth = 2; ctx.strokeRect(px, py, w, h);
+      }
     }
   }
 
