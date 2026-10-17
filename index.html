@@ -405,6 +405,9 @@ async function fetchChunkData() {
 
 let showBorders = true;
 let showUnrendered = false;
+// 国の塗りの濃さ（薄め）と、外周線の濃さ
+const COUNTRY_FILL_ALPHA   = 0.2;
+const COUNTRY_BORDER_ALPHA = 0.9;
 
 const borderToggleBtn = document.getElementById('border-toggle-btn');
 borderToggleBtn.classList.add('active');
@@ -459,19 +462,38 @@ function drawChunks() {
   }
 
   if (showBorders) {
+    // 塗りは薄く、線は領土の「最外周」だけ引く（チャンクの内側の格子線は出さない）
+    const pxOf = x => view.x + (x - MAP_BOUNDS.x1) * view.scale;
+    const pzOf = z => view.y + (z - MAP_BOUNDS.z1) * view.scale;
     for (const n in allChunkData) {
       const d = allChunkData[n];
-      if (!d.chunks) continue;
+      if (!d.chunks || d.chunks.length === 0) continue;
       const c = getCountryColor(n);
-      for (const chunk of d.chunks) {
-        const sx = chunk.cx * CHUNK_SIZE, sz = chunk.cz * CHUNK_SIZE;
-        const ex = sx + CHUNK_SIZE, ez = sz + CHUNK_SIZE;
-        const p1 = mcToPixel(sx, sz), p2 = mcToPixel(ex, ez);
-        const w = Math.abs(p2.x - p1.x), h = Math.abs(p2.y - p1.y);
-        const px = Math.min(p1.x, p2.x), py = Math.min(p1.y, p2.y);
-        ctx.fillStyle = c; ctx.globalAlpha = 0.5; ctx.fillRect(px, py, w, h);
-        ctx.strokeStyle = c; ctx.globalAlpha = 0.8; ctx.lineWidth = 2; ctx.strokeRect(px, py, w, h);
+      const owned = new Set(d.chunks.map(ch => `${ch.cx}_${ch.cz}`));
+
+      // 1) 塗り: 1つのパスにまとめて描く（隣り合うチャンクの継ぎ目が出ないように）
+      ctx.beginPath();
+      for (const ch of d.chunks) {
+        const x0 = pxOf(ch.cx * CHUNK_SIZE), z0 = pzOf(ch.cz * CHUNK_SIZE);
+        ctx.rect(x0, z0, CHUNK_SIZE * view.scale, CHUNK_SIZE * view.scale);
       }
+      ctx.fillStyle = c;
+      ctx.globalAlpha = COUNTRY_FILL_ALPHA;
+      ctx.fill();
+
+      // 2) 外周: 隣が同じ国でない辺だけ線を引く
+      ctx.beginPath();
+      for (const ch of d.chunks) {
+        const sx = ch.cx * CHUNK_SIZE, sz = ch.cz * CHUNK_SIZE, ex = sx + CHUNK_SIZE, ez = sz + CHUNK_SIZE;
+        if (!owned.has(`${ch.cx - 1}_${ch.cz}`)) { ctx.moveTo(pxOf(sx), pzOf(sz)); ctx.lineTo(pxOf(sx), pzOf(ez)); }   // 西
+        if (!owned.has(`${ch.cx + 1}_${ch.cz}`)) { ctx.moveTo(pxOf(ex), pzOf(sz)); ctx.lineTo(pxOf(ex), pzOf(ez)); }   // 東
+        if (!owned.has(`${ch.cx}_${ch.cz - 1}`)) { ctx.moveTo(pxOf(sx), pzOf(sz)); ctx.lineTo(pxOf(ex), pzOf(sz)); }   // 北
+        if (!owned.has(`${ch.cx}_${ch.cz + 1}`)) { ctx.moveTo(pxOf(sx), pzOf(ez)); ctx.lineTo(pxOf(ex), pzOf(ez)); }   // 南
+      }
+      ctx.strokeStyle = c;
+      ctx.globalAlpha = COUNTRY_BORDER_ALPHA;
+      ctx.lineWidth = 2;
+      ctx.stroke();
     }
   }
 
