@@ -54,6 +54,7 @@
 .tab-btn.active{color:#fff;background:var(--grass);border-top-color:#9ed46e;border-left-color:#9ed46e;border-right-color:var(--grass-dark);border-bottom-color:var(--grass-dark);box-shadow:0 0 14px rgba(111,174,62,.55);transform:translateY(-1px)}
 .tab-content{display:none;flex-direction:column;gap:8px;padding:0 12px 8px;flex:0 0 auto}
 .tab-content.active{display:flex}
+#panel.tabs-hidden .tabs{display:none}
 .field-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
 .field-group{display:flex;flex-direction:column;gap:4px}
 .field-label{font-family:var(--font-pixel);font-size:8px;color:var(--gold)}
@@ -86,18 +87,9 @@ input[type=number]{background:#0a0d08;border:2px solid var(--panel-border);color
 .live-mark .icon{border-color:var(--emerald);box-shadow:0 0 10px rgba(46,204,113,.7)}
 .live-mark .icon:after{content:'';position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;background:var(--emerald);animation:liveBlink 1.2s ease-in-out infinite}
 @keyframes liveBlink{0%,100%{opacity:1}50%{opacity:.3}}
-#render-canvas-wrap{width:100%;background:#000;border:2px solid var(--panel-border);border-radius:4px;overflow:hidden;position:relative}
-#render-canvas{display:block;width:100%;image-rendering:pixelated}
-#render-progress-bar{height:6px;background:var(--grass);width:0%;transition:width .2s}
-.render-stat{font-family:monospace;font-size:11px;color:var(--text-dim);padding:4px 8px}
 #border-toggle-btn{position:absolute;left:12px;bottom:185px;z-index:25;width:44px;height:44px;font-size:18px;background:var(--stone);border-top:3px solid #c9c9c9;border-left:3px solid #c9c9c9;border-right:3px solid #4a4a4a;border-bottom:3px solid #4a4a4a;cursor:pointer;display:flex;align-items:center;justify-content:center;user-select:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:background .15s}
 #border-toggle-btn.active{background:#2a5c1a;border-top-color:#6fae3e;border-left-color:#6fae3e;border-right-color:#1a3a0a;border-bottom-color:#1a3a0a;box-shadow:0 0 10px rgba(111,174,62,.5)}
 #border-toggle-btn:active{border-top-color:#4a4a4a;border-left-color:#4a4a4a;border-right-color:#c9c9c9;border-bottom-color:#c9c9c9}
-#unrendered-toggle-btn{position:absolute;left:12px;bottom:237px;z-index:25;width:44px;height:44px;font-size:18px;background:var(--stone);border-top:3px solid #c9c9c9;border-left:3px solid #c9c9c9;border-right:3px solid #4a4a4a;border-bottom:3px solid #4a4a4a;cursor:pointer;display:flex;align-items:center;justify-content:center;user-select:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:background .15s}
-#unrendered-toggle-btn.active{background:#7a1010;border-top-color:#e06060;border-left-color:#e06060;border-right-color:#3a0808;border-bottom-color:#3a0808;box-shadow:0 0 10px rgba(192,57,43,.6)}
-#unrendered-toggle-btn:active{border-top-color:#4a4a4a;border-left-color:#4a4a4a;border-right-color:#c9c9c9;border-bottom-color:#c9c9c9}
-#unrendered-legend{position:absolute;left:62px;bottom:246px;z-index:25;background:rgba(10,14,10,.9);border:2px solid var(--redstone);color:#fff;font-family:var(--font-pixel);font-size:8px;padding:4px 8px;border-radius:3px;pointer-events:none;display:none;white-space:nowrap}
-#unrendered-legend.show{display:block}
 </style>
 </head>
 <body>
@@ -120,8 +112,6 @@ input[type=number]{background:#0a0d08;border:2px solid var(--panel-border);color
       <button type="button" class="zoom-btn" id="zoom-in">+</button>
       <button type="button" class="zoom-btn" id="zoom-out">&minus;</button>
     </div>
-    <button type="button" id="unrendered-toggle-btn" title="ブロック未読込チャンク表示">🟥</button>
-    <div id="unrendered-legend">ブロック未読込エリア</div>
     <button type="button" id="border-toggle-btn" title="国境オン/オフ">🗺</button>
   </div>
 
@@ -134,7 +124,6 @@ input[type=number]{background:#0a0d08;border:2px solid var(--panel-border);color
       <button type="button" class="tab-btn active" data-tab="live"      id="tab-btn-players">&#128100; プレイヤー</button>
       <button type="button" class="tab-btn"        data-tab="countries" id="tab-btn-countries">&#127757; 国一覧</button>
       <button type="button" class="tab-btn"        data-tab="jump"      id="tab-btn-jump">&#127919; ジャンプ</button>
-      <button type="button" class="tab-btn"        data-tab="render"    id="tab-btn-render">&#128444; 描画</button>
     </div>
     <div class="tab-content active" id="tab-live">
       <div class="field-row">
@@ -155,24 +144,9 @@ input[type=number]{background:#0a0d08;border:2px solid var(--panel-border);color
         <button type="button" class="action-btn jump" id="btn-jump">ジャンプ</button>
       </div>
     </div>
-    <div class="tab-content" id="tab-render">
-      <div class="field-row">
-        <button type="button" class="action-btn" id="btn-render-load">データ取得 &amp; 描画</button>
-        <button type="button" class="action-btn gold" id="btn-render-save" disabled>PNG保存</button>
-      </div>
-      <div class="field-row">
-        <button type="button" class="action-btn warn" id="btn-show-unrendered">🟥 ブロック未読込表示: OFF</button>
-        <div class="info-chip" id="unrendered-stat">—</div>
-      </div>
-      <div class="info-chip render-stat" id="render-stat">未取得</div>
-      <div id="render-progress-bar"></div>
-    </div>
     <div id="panel-detail">
       <div id="live-player-list"></div>
       <div id="country-list-wrap" style="display:none"></div>
-      <div id="render-canvas-wrap" style="display:none;padding:8px 12px 12px">
-        <canvas id="render-canvas"></canvas>
-      </div>
     </div>
   </div>
 </div>
@@ -309,7 +283,6 @@ function applyView() {
   const r = mapArea.getBoundingClientRect();
   chunkCanvas.width  = r.width;
   chunkCanvas.height = r.height;
-  _invalidateUnrenderedCache();
   updateAllMarkers();
   scheduleDrawChunks();
 }
@@ -346,50 +319,7 @@ function makeChunkDataKey(data) {
   return Object.keys(data || {}).sort().map(n => n + ':' + (data[n].chunkCount || 0) + ':' + (data[n].color || '')).join('|');
 }
 
-let renderedChunkSet = new Set();
 
-let _unrenderedCache = null;
-let _unrenderedCacheSetSize = -1;
-
-function _buildUnrenderedCache() {
-  const w = chunkCanvas.width, h = chunkCanvas.height;
-  if (w === 0 || h === 0) { _unrenderedCache = null; return; }
-  const oc = document.createElement('canvas');
-  oc.width = w; oc.height = h;
-  const ctx = oc.getContext('2d');
-
-  const visX1 = -view.x / view.scale + MAP_BOUNDS.x1;
-  const visZ1 = -view.y / view.scale + MAP_BOUNDS.z1;
-  const visX2 = visX1 + w / view.scale;
-  const visZ2 = visZ1 + h / view.scale;
-  const visCX1 = Math.max(MAP_CX1, Math.floor(visX1 / CHUNK_SIZE) - 1);
-  const visCX2 = Math.min(MAP_CX2, Math.ceil(visX2  / CHUNK_SIZE) + 1);
-  const visCZ1 = Math.max(MAP_CZ1, Math.floor(visZ1 / CHUNK_SIZE) - 1);
-  const visCZ2 = Math.min(MAP_CZ2, Math.ceil(visZ2  / CHUNK_SIZE) + 1);
-
-  ctx.fillStyle   = 'rgba(192,57,43,0.45)';
-  ctx.strokeStyle = 'rgba(255,107,91,0.7)';
-  ctx.lineWidth   = 1;
-
-  for (let cz = visCZ1; cz <= visCZ2; cz++) {
-    for (let cx = visCX1; cx <= visCX2; cx++) {
-      if (renderedChunkSet.has(`${cx}_${cz}`)) continue;
-      const sx = cx * CHUNK_SIZE, sz = cz * CHUNK_SIZE;
-      const p1 = mcToPixel(sx, sz), p2 = mcToPixel(sx + CHUNK_SIZE, sz + CHUNK_SIZE);
-      const pw = Math.abs(p2.x - p1.x), ph2 = Math.abs(p2.y - p1.y);
-      const px = Math.min(p1.x, p2.x), py = Math.min(p1.y, p2.y);
-      ctx.fillRect(px, py, pw, ph2);
-      ctx.strokeRect(px, py, pw, ph2);
-    }
-  }
-  _unrenderedCache = { canvas: oc, scale: view.scale, tx: view.x, ty: view.y };
-  _unrenderedCacheSetSize = renderedChunkSet.size;
-}
-
-function _invalidateUnrenderedCache() {
-  _unrenderedCache = null;
-  _unrenderedCacheSetSize = -1;
-}
 
 async function fetchChunkData() {
   try {
@@ -403,7 +333,6 @@ async function fetchChunkData() {
   } catch (e) { console.warn('チャンクデータ取得失敗:', e); }
 }
 
-let showUnrendered = false;
 
 // 国境の表示モード（ボタンで順番に切り替え）
 //   outer : 外周モード（デフォルト）… 塗りは薄く、領土の最外周だけ線
@@ -430,29 +359,6 @@ borderToggleBtn.addEventListener('click', () => {
   scheduleDrawChunks();
 });
 
-const unrenderedToggleBtn = document.getElementById('unrendered-toggle-btn');
-const unrenderedLegend    = document.getElementById('unrendered-legend');
-const btnShowUnrendered   = document.getElementById('btn-show-unrendered');
-const unrenderedStat      = document.getElementById('unrendered-stat');
-
-function setUnrenderedMode(val) {
-  showUnrendered = val;
-  unrenderedToggleBtn.classList.toggle('active', showUnrendered);
-  unrenderedLegend.classList.toggle('show', showUnrendered);
-  btnShowUnrendered.textContent = '🟥 ブロック未読込表示: ' + (showUnrendered ? 'ON' : 'OFF');
-  btnShowUnrendered.classList.toggle('active-warn', showUnrendered);
-  if (showUnrendered) { _invalidateUnrenderedCache(); updateUnrenderedStat(); }
-  scheduleDrawChunks();
-}
-
-unrenderedToggleBtn.addEventListener('click', () => setUnrenderedMode(!showUnrendered));
-btnShowUnrendered.addEventListener('click', () => setUnrenderedMode(!showUnrendered));
-
-function updateUnrenderedStat() {
-  const unrendered = TOTAL_CHUNKS - renderedChunkSet.size;
-  unrenderedStat.textContent = `未読込: ${unrendered.toLocaleString()} / 全: ${TOTAL_CHUNKS.toLocaleString()}チャンク`;
-}
-
 let _drawChunksRaf = null;
 function scheduleDrawChunks() {
   if (_drawChunksRaf) return;
@@ -462,17 +368,6 @@ function scheduleDrawChunks() {
 function drawChunks() {
   const ctx = chunkCanvas.getContext('2d');
   ctx.clearRect(0, 0, chunkCanvas.width, chunkCanvas.height);
-
-  if (showUnrendered) {
-    const cacheStale = !_unrenderedCache
-      || _unrenderedCacheSetSize !== renderedChunkSet.size
-      || _unrenderedCache.scale !== view.scale
-      || _unrenderedCache.tx !== view.x
-      || _unrenderedCache.ty !== view.y;
-    if (cacheStale) _buildUnrenderedCache();
-    if (_unrenderedCache) ctx.drawImage(_unrenderedCache.canvas, 0, 0);
-    updateUnrenderedStat();
-  }
 
   const mode = BORDER_MODES[borderModeIdx];
   if (mode.key === 'outer') {
@@ -619,27 +514,43 @@ function zoomToMcCoord(x, z, target) {
 const panelDetail = document.getElementById('panel-detail');
 const handleLabel = document.getElementById('handle-label');
 const panelHandle = document.getElementById('panel-handle');
+const panelEl = document.getElementById('panel');
 let detailExpanded = false;
+
+// ─── 表示の設定（元に戻すときは false にする） ─────────────────────────
+// true : 一覧表示のときに下へスライドすると、タブ（プレイヤー／国一覧／ジャンプ）を隠す
+//        タブを戻すには、上へスライドするか、ハンドルをタップする
+// false: 以前どおり、下へスライドすると一覧を閉じる
+const SWIPE_DOWN_HIDES_TABS = true;
+
+function setTabsHidden(hidden) {
+  panelEl.classList.toggle('tabs-hidden', !!hidden);
+  handleLabel.textContent = hidden ? '上にスワイプでタブ表示' : '下にスワイプで閉じる';
+  fitView();
+}
 
 function detailMaxPx() { return Math.max(100, Math.round(document.getElementById('stage').getBoundingClientRect().height * .58)); }
 function setDetailExpanded(exp, skipFitView) {
   detailExpanded = exp;
   if (exp) { panelDetail.style.maxHeight = detailMaxPx() + 'px'; panelDetail.classList.add('expanded'); handleLabel.textContent = '下にスワイプで閉じる'; }
-  else { panelDetail.style.maxHeight = '0px'; panelDetail.classList.remove('expanded'); handleLabel.textContent = '上にスワイプで一覧表示'; }
+  else { panelDetail.style.maxHeight = '0px'; panelDetail.classList.remove('expanded'); handleLabel.textContent = '上にスワイプで一覧表示'; panelEl.classList.remove('tabs-hidden'); }
   if (!skipFitView) { fitView(); }
 }
 
 let hDragging = false, hMoved = false, hStartY = 0, hStartH = 0, hMaxPx = 0;
+let hLastDy = 0, hWasExpanded = false;
 function hDragStart(y) {
   const activeTab = document.querySelector('.tab-content.active');
-  if (!activeTab || activeTab.id === 'tab-jump' || activeTab.id === 'tab-render') return;
-  hDragging = true; hMoved = false; hStartY = y;
+  if (!activeTab || activeTab.id === 'tab-jump') return;
+  hDragging = true; hMoved = false; hStartY = y; hLastDy = 0;
+  hWasExpanded = detailExpanded;
   hStartH = panelDetail.getBoundingClientRect().height; hMaxPx = detailMaxPx();
   panelDetail.style.transition = 'none'; panelDetail.classList.add('expanded');
 }
 function hDragMove(y) {
   if (!hDragging) return;
   const dy = hStartY - y;
+  hLastDy = dy;
   if (Math.abs(dy) > 6) hMoved = true;
   panelDetail.style.maxHeight = Math.min(Math.max(hStartH + dy, 0), hMaxPx) + 'px';
   fitView();
@@ -647,6 +558,18 @@ function hDragMove(y) {
 function hDragEnd() {
   if (!hDragging) return; hDragging = false; panelDetail.style.transition = '';
   if (!hMoved) { setDetailExpanded(!detailExpanded); return; }
+  // 一覧表示中に下へスライド → タブを隠す（一覧はそのまま見える）
+  if (SWIPE_DOWN_HIDES_TABS && hWasExpanded && hLastDy < -10) {
+    panelDetail.style.maxHeight = detailMaxPx() + 'px';
+    setTabsHidden(true);
+    return;
+  }
+  // タブが隠れている状態で上へスライド → タブを表示
+  if (SWIPE_DOWN_HIDES_TABS && panelEl.classList.contains('tabs-hidden') && hLastDy > 10) {
+    panelDetail.style.maxHeight = detailMaxPx() + 'px';
+    setTabsHidden(false);
+    return;
+  }
   setDetailExpanded(panelDetail.getBoundingClientRect().height > hMaxPx * .3);
 }
 panelHandle.addEventListener('touchstart', e => hDragStart(e.touches[0].clientY), { passive: true });
@@ -666,12 +589,10 @@ function switchTab(name) {
   document.getElementById('tab-' + name).classList.add('active');
   document.getElementById('live-player-list').style.display = (name === 'live') ? 'flex' : 'none';
   document.getElementById('country-list-wrap').style.display = (name === 'countries') ? 'flex' : 'none';
-  document.getElementById('render-canvas-wrap').style.display = (name === 'render') ? 'block' : 'none';
-  if (name === 'jump' || name === 'render') {
-    panelDetail.style.display = (name === 'render') ? '' : 'none';
+  if (name === 'jump') {
+    panelDetail.style.display = 'none';
     panelHandle.style.opacity = '.4'; handleLabel.textContent = '';
-    if (name === 'render') { panelDetail.style.display = ''; panelHandle.style.opacity = '1'; setDetailExpanded(true); }
-    else setDetailExpanded(false);
+    setDetailExpanded(false);
   } else { panelDetail.style.display = ''; panelHandle.style.opacity = '1'; fitView(); }
 }
 document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
@@ -946,17 +867,6 @@ function setLive(on) {
 liveToggleBtn.addEventListener('click', () => setLive(!liveActive));
 document.getElementById('tab-btn-players').addEventListener('click', () => { if (!liveActive) setLive(true); });
 
-// ══════════════════════════════════════════════════════════════════════════════
-// 描画タブ（手動）— Firebase直接
-// ══════════════════════════════════════════════════════════════════════════════
-const renderCanvas   = document.getElementById('render-canvas');
-const renderWrap     = document.getElementById('render-canvas-wrap');
-const renderStat     = document.getElementById('render-stat');
-const renderProgress = document.getElementById('render-progress-bar');
-const btnRenderLoad  = document.getElementById('btn-render-load');
-const btnRenderSave  = document.getElementById('btn-render-save');
-let renderImageDataURL = null;
-
 function isWaterChunk(val) {
   if (!val) return true;
   const id = val.id || '';
@@ -964,104 +874,6 @@ function isWaterChunk(val) {
     id === 'minecraft:seagrass' || id === 'minecraft:tall_seagrass' ||
     id === 'minecraft:bubble_column';
 }
-
-function updateRenderedChunkSet(rawData) {
-  renderedChunkSet = new Set();
-  for (const key of Object.keys(rawData || {})) {
-    const u = key.lastIndexOf('_'); if (u === -1) continue;
-    const bx = parseInt(key.slice(0, u)), bz = parseInt(key.slice(u + 1));
-    if (isNaN(bx) || isNaN(bz)) continue;
-    const cx = Math.floor(bx / CHUNK_SIZE), cz = Math.floor(bz / CHUNK_SIZE);
-    renderedChunkSet.add(`${cx}_${cz}`);
-  }
-  _invalidateUnrenderedCache();
-  if (showUnrendered) { updateUnrenderedStat(); scheduleDrawChunks(); }
-}
-
-async function loadAndRender() {
-  btnRenderLoad.disabled = true; btnRenderSave.disabled = true;
-  renderStat.textContent = 'データ取得中...'; renderProgress.style.width = '0%';
-  renderImageDataURL = null;
-  let meta, rawData;
-  try {
-    const res = await fbGet('/blocks');
-    meta    = res?.meta || {};
-    rawData = res?.data || {};
-  } catch (e) {
-    renderStat.textContent = '取得失敗: ' + e.message;
-    btnRenderLoad.disabled = false; return;
-  }
-  updateRenderedChunkSet(rawData);
-
-  const entries = Object.entries(rawData);
-  if (!entries.length) {
-    renderStat.textContent = 'データなし。マイクラで /menearth:rendering を実行してください。';
-    btnRenderLoad.disabled = false; return;
-  }
-  renderStat.textContent = `描画中... (${entries.length}ブロック)`;
-  const chunkMap = new Map();
-  for (const [key, val] of entries) {
-    const u = key.lastIndexOf('_'); if (u === -1) continue;
-    const bx = parseInt(key.slice(0, u)), bz = parseInt(key.slice(u + 1));
-    if (isNaN(bx) || isNaN(bz)) continue;
-    chunkMap.set(`${Math.floor(bx / CHUNK_SIZE)}_${Math.floor(bz / CHUNK_SIZE)}`, val);
-  }
-  let minCX = Infinity, maxCX = -Infinity, minCZ = Infinity, maxCZ = -Infinity;
-  for (const ck of chunkMap.keys()) {
-    const u = ck.indexOf('_');
-    const cx = parseInt(ck.slice(0, u)), cz = parseInt(ck.slice(u + 1));
-    minCX = Math.min(minCX, cx); maxCX = Math.max(maxCX, cx);
-    minCZ = Math.min(minCZ, cz); maxCZ = Math.max(maxCZ, cz);
-  }
-  const numCX = maxCX - minCX + 1, numCZ = maxCZ - minCZ + 1;
-  const chunkPx = Math.max(1, Math.floor(Math.min(2048 / numCX, 2048 / numCZ)));
-  renderCanvas.width = numCX * chunkPx; renderCanvas.height = numCZ * chunkPx;
-  const ctx = renderCanvas.getContext('2d');
-  ctx.fillStyle = '#3c6fa8'; ctx.fillRect(0, 0, renderCanvas.width, renderCanvas.height);
-  const imageData = ctx.getImageData(0, 0, renderCanvas.width, renderCanvas.height);
-  const d = imageData.data;
-  const chunkEntries = [...chunkMap.entries()];
-  const BATCH = 500;
-  for (let i = 0; i < chunkEntries.length; i += BATCH) {
-    const end = Math.min(i + BATCH, chunkEntries.length);
-    for (let j = i; j < end; j++) {
-      const [ck, val] = chunkEntries[j];
-      const u = ck.indexOf('_');
-      const cx = parseInt(ck.slice(0, u)), cz = parseInt(ck.slice(u + 1));
-      const px0 = (cx - minCX) * chunkPx, pz0 = (cz - minCZ) * chunkPx;
-      let r, g, b;
-      if (isWaterChunk(val)) { r = 0x3c; g = 0x6f; b = 0xa8; }
-      else {
-        const y = val.y ?? 64, bright = Math.min(1, Math.max(0.5, (y + 64) / 320));
-        const hex = (blockColor(val.id || 'minecraft:stone')).slice(1);
-        r = Math.min(255, Math.round(parseInt(hex.slice(0,2),16) * bright));
-        g = Math.min(255, Math.round(parseInt(hex.slice(2,4),16) * bright));
-        b = Math.min(255, Math.round(parseInt(hex.slice(4,6),16) * bright));
-      }
-      for (let dy = 0; dy < chunkPx; dy++) for (let dx = 0; dx < chunkPx; dx++) {
-        const pi = ((pz0 + dy) * renderCanvas.width + (px0 + dx)) * 4;
-        d[pi] = r; d[pi+1] = g; d[pi+2] = b; d[pi+3] = 255;
-      }
-    }
-    renderProgress.style.width = Math.floor((end / chunkEntries.length) * 100) + '%';
-    renderStat.textContent = `描画中... ${end}/${chunkEntries.length}チャンク`;
-    await new Promise(r => setTimeout(r, 0));
-  }
-  ctx.putImageData(imageData, 0, 0);
-  renderProgress.style.width = '100%';
-  renderStat.textContent = `完了 — ${chunkEntries.length}チャンク`;
-  renderImageDataURL = renderCanvas.toDataURL('image/png');
-  btnRenderSave.disabled = false; btnRenderLoad.disabled = false;
-}
-function saveRenderAsPng() {
-  if (!renderImageDataURL) return;
-  const now = new Date();
-  const ts = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
-  const link = document.createElement('a'); link.download = `menearth_map_${ts}.png`; link.href = renderImageDataURL; link.click();
-}
-btnRenderLoad.addEventListener('click', loadAndRender);
-btnRenderSave.addEventListener('click', saveRenderAsPng);
-
 // ══════════════════════════════════════════════════════════════════════════════
 // 自動マップ描画（Firebase直接）
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1086,7 +898,6 @@ async function autoLoadBlockMap() {
       return;
     }
 
-    updateRenderedChunkSet(rawData);
 
     const chunkMap = new Map();
     let minCX = Infinity, maxCX = -Infinity, minCZ = Infinity, maxCZ = -Infinity;
@@ -1151,7 +962,6 @@ async function autoLoadBlockMap() {
     IMG_W = cw; IMG_H = ch;
 
     const dataUrl = _autoOffscreen.toDataURL('image/png');
-    renderImageDataURL = dataUrl; btnRenderSave.disabled = false;
     mapImg.onload = () => { fitView(); scheduleDrawChunks(); };
     mapImg.src = dataUrl;
 
@@ -1161,7 +971,6 @@ async function autoLoadBlockMap() {
     } else {
       hdrInfo.textContent = `スキャン中 (${chunkMap.size.toLocaleString()}チャンク)`;
     }
-    renderStat.textContent = `自動描画済み — ${chunkMap.size.toLocaleString()}チャンク (${cw}×${ch}px)`;
 
   } catch (e) {
     hdrInfo.textContent = 'ブロックデータ取得失敗: ' + e.message;
@@ -1180,7 +989,6 @@ window.addEventListener('load', () => {
   fetchChunkData(); setInterval(fetchChunkData, 10000);
   document.getElementById('live-player-list').style.display = 'flex';
   document.getElementById('country-list-wrap').style.display = 'none';
-  document.getElementById('render-canvas-wrap').style.display = 'none';
   setLive(true); // プレイヤー位置表示は最初からON
   let _autoLoadTimer = null;
   async function scheduleAutoLoad() {
