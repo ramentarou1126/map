@@ -89,6 +89,8 @@ input[type=number]{background:#0a0d08;border:2px solid var(--panel-border);color
 @keyframes liveBlink{0%,100%{opacity:1}50%{opacity:.3}}
 #border-toggle-btn{position:absolute;left:12px;bottom:185px;z-index:25;width:44px;height:44px;font-size:18px;background:var(--stone);border-top:3px solid #c9c9c9;border-left:3px solid #c9c9c9;border-right:3px solid #4a4a4a;border-bottom:3px solid #4a4a4a;cursor:pointer;display:flex;align-items:center;justify-content:center;user-select:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:background .15s}
 #border-toggle-btn.active{background:#2a5c1a;border-top-color:#6fae3e;border-left-color:#6fae3e;border-right-color:#1a3a0a;border-bottom-color:#1a3a0a;box-shadow:0 0 10px rgba(111,174,62,.5)}
+#cell-mode-btn{position:absolute;left:12px;bottom:240px;z-index:25;width:44px;height:44px;font-size:18px;background:var(--stone);border-top:3px solid #c9c9c9;border-left:3px solid #c9c9c9;border-right:3px solid #4a4a4a;border-bottom:3px solid #4a4a4a;cursor:pointer;display:flex;align-items:center;justify-content:center;user-select:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+#cell-mode-btn.red{background:#7a1f16;border-top-color:#e0685a;border-left-color:#e0685a}
 #border-toggle-btn:active{border-top-color:#4a4a4a;border-left-color:#4a4a4a;border-right-color:#c9c9c9;border-bottom-color:#c9c9c9}
 </style>
 </head>
@@ -113,6 +115,7 @@ input[type=number]{background:#0a0d08;border:2px solid var(--panel-border);color
       <button type="button" class="zoom-btn" id="zoom-out">&minus;</button>
     </div>
     <button type="button" id="border-toggle-btn" title="国境オン/オフ">🗺</button>
+    <button type="button" id="cell-mode-btn" title="未描画: 青">🟦</button>
   </div>
 
   <div id="panel">
@@ -995,7 +998,24 @@ const _cellCtx = _cellCanvas.getContext('2d');
 _cellCtx.fillStyle = '#3c6fa8'; _cellCtx.fillRect(0, 0, C_W, C_H);
 let _cellImg = _cellCtx.getImageData(0, 0, C_W, C_H);   // 未描画 = 初期の青
 const _loadedTiles = new Set();
-let _shownIndex = 0;      // 前回表示した巡回の位置（戻ったら描き直す）
+const _painted = new Uint8Array(C_W * C_H);      // 1 = 描画済み（地形の色が入っている）
+const UNPAINT_COLORS = { blue: [0x3c, 0x6f, 0xa8], red: [0xc0, 0x39, 0x2b] };
+let _unpaintMode = 'blue';                       // 未描画の色: blue / red
+let _tourActive = false;                         // 巡回のデータがあるとき true（段々表示の対象）
+let _shownIndex = 0;
+const cellModeBtn = document.getElementById('cell-mode-btn');
+function applyCellModeUI() {
+  const red = _unpaintMode === 'red';
+  cellModeBtn.textContent = red ? '🟥' : '🟦';
+  cellModeBtn.title = red ? '未描画: 赤' : '未描画: 青';
+  cellModeBtn.classList.toggle('red', red);
+}
+applyCellModeUI();
+cellModeBtn.addEventListener('click', () => {
+  _unpaintMode = _unpaintMode === 'red' ? 'blue' : 'red';
+  applyCellModeUI();
+  if (_tourActive) { flushCellCanvas(); showCellMap(); }
+});      // 前回表示した巡回の位置（戻ったら描き直す）
 let _fullLoadAt = 0;      // 巡回外の従来表示を最後に読んだ時刻（重いので10分に1回）
 let _fitted = false;
 let _manualAt = 0;
@@ -1022,10 +1042,20 @@ function paintTile(cells) {
     }
     const pi = (pz * C_W + px) * 4;
     d[pi] = r; d[pi+1] = g; d[pi+2] = b; d[pi+3] = 255;
+    _painted[pz * C_W + px] = 1;
   }
 }
 
-function flushCellCanvas() { _cellCtx.putImageData(_cellImg, 0, 0); }
+function flushCellCanvas() {
+  // 未描画のマスだけ、今のモードの色にする（描画済みの地形はそのまま）
+  const d = _cellImg.data;
+  const [ur, ug, ub] = UNPAINT_COLORS[_unpaintMode];
+  for (let i = 0, p = 0; i < _painted.length; i++, p += 4) {
+    if (_painted[i]) continue;
+    d[p] = ur; d[p+1] = ug; d[p+2] = ub; d[p+3] = 255;
+  }
+  _cellCtx.putImageData(_cellImg, 0, 0);
+}
 
 function showCellMap() {
   mapImgMcX1 = C_X1 * CELL8; mapImgMcZ1 = C_Z1 * CELL8;
@@ -1038,12 +1068,14 @@ function showCellMap() {
 /** /blocks8/tour があれば段々表示。戻り値 false = 巡回データが無い（従来の表示へ） */
 async function loadTiles() {
   const tour = await fbGet('/blocks8/tour');
-  if (!tour || !tour.total) return false;
+  if (!tour || !tour.total) { _tourActive = false; return false; }
+  _tourActive = true;
   if ((tour.index || 0) < _shownIndex) {
     // 巡回をやり直した（reset）→ 色を青に戻して、読み直す
     _cellCtx.fillStyle = '#3c6fa8'; _cellCtx.fillRect(0, 0, C_W, C_H);
     _cellImg = _cellCtx.getImageData(0, 0, C_W, C_H);
     _loadedTiles.clear();
+    _painted.fill(0);
   }
   _shownIndex = tour.index || 0;
   // 地点 k のタイルは、tour.index が k より大きくなったら完了（done のときは全部）
