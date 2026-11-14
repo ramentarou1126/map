@@ -888,7 +888,12 @@ function makeAutoRenderKey(chunkMap, meta) {
 
 async function autoLoadBlockMap() {
   try {
-    const res = await fbGet('/blocks');
+    const res8 = await fbGet('/blocks8');
+    const useNew = !!(res8 && res8.data && Object.keys(res8.data).length > 0);
+    const res = useNew ? res8 : await fbGet('/blocks');
+    const CELL = useNew ? (res8.meta?.cellSize || 8) : CHUNK_SIZE;
+    const cx1 = Math.floor(MAP_BOUNDS.x1 / CELL), cx2 = Math.floor((MAP_BOUNDS.x2 - 1) / CELL);
+    const cz1 = Math.floor(MAP_BOUNDS.z1 / CELL), cz2 = Math.floor((MAP_BOUNDS.z2 - 1) / CELL);
     const meta    = res?.meta || {};
     const rawData = res?.data || {};
     const blockCount = Object.keys(rawData).length;
@@ -906,8 +911,8 @@ async function autoLoadBlockMap() {
       const u = key.lastIndexOf('_'); if (u === -1) continue;
       const bx = parseInt(key.slice(0, u)), bz = parseInt(key.slice(u + 1));
       if (isNaN(bx) || isNaN(bz)) continue;
-      const cx = Math.floor(bx / CHUNK_SIZE), cz = Math.floor(bz / CHUNK_SIZE);
-      if (cx < MAP_CX1 || cx > MAP_CX2 || cz < MAP_CZ1 || cz > MAP_CZ2) continue;
+      const cx = Math.floor(bx / CELL), cz = Math.floor(bz / CELL);
+      if (cx < cx1 || cx > cx2 || cz < cz1 || cz > cz2) continue;
       chunkMap.set(`${cx}_${cz}`, val);
       minCX = Math.min(minCX, cx); maxCX = Math.max(maxCX, cx);
       minCZ = Math.min(minCZ, cz); maxCZ = Math.max(maxCZ, cz);
@@ -957,8 +962,8 @@ async function autoLoadBlockMap() {
     }
 
     ctx.putImageData(imageData, 0, 0);
-    mapImgMcX1 = minCX * CHUNK_SIZE; mapImgMcZ1 = minCZ * CHUNK_SIZE;
-    mapImgMcX2 = (maxCX + 1) * CHUNK_SIZE; mapImgMcZ2 = (maxCZ + 1) * CHUNK_SIZE;
+    mapImgMcX1 = minCX * CELL; mapImgMcZ1 = minCZ * CELL;
+    mapImgMcX2 = (maxCX + 1) * CELL; mapImgMcZ2 = (maxCZ + 1) * CELL;
     IMG_W = cw; IMG_H = ch;
 
     const dataUrl = _autoOffscreen.toDataURL('image/png');
@@ -978,6 +983,34 @@ async function autoLoadBlockMap() {
   }
 }
 
+// ── 進捗表示（画面左下。/blocks8/meta と /blocks8/tour だけを読む＝軽い） ──
+const _progEl = (() => {
+  const d = document.createElement('div');
+  d.id = 'blocks8-progress';
+  d.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:50;background:rgba(0,0,0,.6);color:#e8e6d8;font:12px/1.5 sans-serif;padding:6px 10px;border-radius:6px;pointer-events:none;';
+  document.body.appendChild(d);
+  return d;
+})();
+async function updateProgress() {
+  try {
+    const [meta, tour] = await Promise.all([fbGet('/blocks8/meta'), fbGet('/blocks8/tour')]);
+    if (!meta && !tour) { _progEl.textContent = '自動レンダリング：まだデータがありません'; return; }
+    const parts = [];
+    if (meta) {
+      parts.push(meta.status === 'complete' ? '✅ 完成' : '⏳ 作成中');
+      if (meta.totalCells) parts.push(`セル数 ${Number(meta.totalCells).toLocaleString()}`);
+    }
+    if (tour && tour.total) {
+      const pct = Math.floor((tour.index / tour.total) * 100);
+      const state = tour.done ? '完了' : (tour.running ? '巡回中' : '停止中');
+      parts.push(`巡回 ${state}: ${tour.index} / ${tour.total}（${pct}%）`);
+    }
+    _progEl.textContent = parts.join(' ／ ');
+  } catch (e) {
+    _progEl.textContent = '進捗の取得に失敗: ' + e.message;
+  }
+}
+
 let _resizeTimer = null;
 window.addEventListener('resize', () => {
   if (_resizeTimer) clearTimeout(_resizeTimer);
@@ -994,8 +1027,9 @@ window.addEventListener('load', () => {
   async function scheduleAutoLoad() {
     await autoLoadBlockMap();
     const scanning = hdrInfo.textContent.includes('スキャン進行中');
-    _autoLoadTimer = setTimeout(scheduleAutoLoad, scanning ? 10000 : 60000);
+    _autoLoadTimer = setTimeout(scheduleAutoLoad, 600000); // 地図本体は10分ごと（/blocks8 は大きいので頻繁に読まない）
   }
+  updateProgress(); setInterval(updateProgress, 10000);
   scheduleAutoLoad();
 });
 </script>
