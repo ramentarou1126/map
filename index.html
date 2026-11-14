@@ -260,9 +260,9 @@ function fitView() {
 }
 function _doFitView() {
   const r = mapArea.getBoundingClientRect();
-  const ph = getPanelHeight();
   if (r.width <= 0 || r.height <= 0) return;
-  const ah = Math.max(r.height - ph, 100);
+  const ph = getPanelHeight();
+  const ah = Math.max(r.height - ph, 100);   // パネルを除いた領域に全体が入るように
   view.scale = Math.min(r.width / FULL_MC_W, ah / FULL_MC_H);
   view.x = (r.width  - FULL_MC_W * view.scale) / 2;
   view.y = (ah - FULL_MC_H * view.scale) / 2;
@@ -983,6 +983,109 @@ async function autoLoadBlockMap() {
   }
 }
 
+// ── 段々表示：完了したタイル（巡回の地点）だけを読んで、地図に描き足していく ──
+const CELL8 = 8;
+const C_X1 = Math.floor(MAP_BOUNDS.x1 / CELL8);
+const C_Z1 = Math.floor(MAP_BOUNDS.z1 / CELL8);
+const C_W  = Math.floor((MAP_BOUNDS.x2 - 1) / CELL8) - C_X1 + 1;
+const C_H  = Math.floor((MAP_BOUNDS.z2 - 1) / CELL8) - C_Z1 + 1;
+const _cellCanvas = document.createElement('canvas');
+_cellCanvas.width = C_W; _cellCanvas.height = C_H;
+const _cellCtx = _cellCanvas.getContext('2d');
+_cellCtx.fillStyle = '#3c6fa8'; _cellCtx.fillRect(0, 0, C_W, C_H);
+let _cellImg = _cellCtx.getImageData(0, 0, C_W, C_H);   // 未描画 = 初期の青
+const _loadedTiles = new Set();
+let _shownIndex = 0;      // 前回表示した巡回の位置（戻ったら描き直す）
+let _fullLoadAt = 0;      // 巡回外の従来表示を最後に読んだ時刻（重いので10分に1回）
+let _fitted = false;
+let _manualAt = 0;
+const MAX_TILES_PER_CYCLE = 15;   // 1回の更新で読むタイル数
+const TILE_PARALLEL = 8;           // 同時に読む数
+
+function paintTile(cells) {
+  if (!cells) return;
+  const d = _cellImg.data;
+  for (const [key, val] of Object.entries(cells)) {
+    const u = key.lastIndexOf('_'); if (u < 0) continue;
+    const bx = parseInt(key.slice(0, u)), bz = parseInt(key.slice(u + 1));
+    if (isNaN(bx) || isNaN(bz)) continue;
+    const px = Math.floor(bx / CELL8) - C_X1, pz = Math.floor(bz / CELL8) - C_Z1;
+    if (px < 0 || px >= C_W || pz < 0 || pz >= C_H) continue;
+    let r, g, b;
+    if (isWaterChunk(val)) { r = 0x3c; g = 0x6f; b = 0xa8; }
+    else {
+      const y = val?.y ?? 64, bright = Math.min(1.1, Math.max(0.55, (y + 64) / 290));
+      const hex = (blockColor(val?.id || 'minecraft:stone')).slice(1);
+      r = Math.min(255, Math.round(parseInt(hex.slice(0,2),16) * bright));
+      g = Math.min(255, Math.round(parseInt(hex.slice(2,4),16) * bright));
+      b = Math.min(255, Math.round(parseInt(hex.slice(4,6),16) * bright));
+    }
+    const pi = (pz * C_W + px) * 4;
+    d[pi] = r; d[pi+1] = g; d[pi+2] = b; d[pi+3] = 255;
+  }
+}
+
+function flushCellCanvas() { _cellCtx.putImageData(_cellImg, 0, 0); }
+
+function showCellMap() {
+  mapImgMcX1 = C_X1 * CELL8; mapImgMcZ1 = C_Z1 * CELL8;
+  mapImgMcX2 = (C_X1 + C_W) * CELL8; mapImgMcZ2 = (C_Z1 + C_H) * CELL8;
+  IMG_W = C_W; IMG_H = C_H;
+  mapImg.onload = () => { if (!_fitted) { fitView(); _fitted = true; } scheduleDrawChunks(); };
+  mapImg.src = _cellCanvas.toDataURL('image/png');
+}
+
+/** /blocks8/tour があれば段々表示。戻り値 false = 巡回データが無い（従来の表示へ） */
+async function loadTiles() {
+  const tour = await fbGet('/blocks8/tour');
+  if (!tour || !tour.total) return false;
+  if ((tour.index || 0) < _shownIndex) {
+    // 巡回をやり直した（reset）→ 色を青に戻して、読み直す
+    _cellCtx.fillStyle = '#3c6fa8'; _cellCtx.fillRect(0, 0, C_W, C_H);
+    _cellImg = _cellCtx.getImageData(0, 0, C_W, C_H);
+    _loadedTiles.clear();
+  }
+  _shownIndex = tour.index || 0;
+  // 地点 k のタイルは、tour.index が k より大きくなったら完了（done のときは全部）
+  const upto = tour.done ? tour.total : Math.max(0, tour.index || 0);
+  const todo = [];
+  for (let k = 0; k < upto && todo.length < MAX_TILES_PER_CYCLE; k++) {
+    const name = String(k).padStart(4, '0');
+    if (!_loadedTiles.has(name)) todo.push(name);
+  }
+  let changed = false;
+  for (let i = 0; i < todo.length; i += TILE_PARALLEL) {
+    const part = todo.slice(i, i + TILE_PARALLEL);
+    const datas = await Promise.all(part.map(name => fbGet(`/blocks8/data/${name}`).catch(() => undefined)));
+    part.forEach((name, j) => {
+      if (datas[j] === undefined) return;   // 失敗したタイルは次の周期で再試行
+      paintTile(datas[j]);
+      _loadedTiles.add(name);
+      changed = true;
+    });
+  }
+  // 巡回の外で読んだデータ（manual）は10分ごとに読む
+  if (Date.now() - _manualAt > 600000) {
+    _manualAt = Date.now();
+    paintTile(await fbGet('/blocks8/data/manual'));
+    changed = true;
+  }
+  if (changed) { flushCellCanvas(); showCellMap(); }
+  return true;
+}
+
+async function refreshMap() {
+  try {
+    if (await loadTiles()) return;
+  } catch (e) {
+    console.error('loadTiles error:', e);
+  }
+  // 巡回データが無いときの従来表示は全件を読むので重い。10分に1回だけ
+  if (Date.now() - _fullLoadAt < 600000) return;
+  _fullLoadAt = Date.now();
+  await autoLoadBlockMap();
+}
+
 // ── 進捗表示（画面左下。/blocks8/meta と /blocks8/tour だけを読む＝軽い） ──
 const _progEl = (() => {
   const d = document.createElement('div');
@@ -1017,6 +1120,7 @@ window.addEventListener('resize', () => {
   _resizeTimer = setTimeout(() => { _resizeTimer = null; fitView(); }, 100);
 });
 
+window.addEventListener('resize', () => fitView());
 window.addEventListener('load', () => {
   fitView();
   fetchChunkData(); setInterval(fetchChunkData, 10000);
@@ -1025,9 +1129,9 @@ window.addEventListener('load', () => {
   setLive(true); // プレイヤー位置表示は最初からON
   let _autoLoadTimer = null;
   async function scheduleAutoLoad() {
-    await autoLoadBlockMap();
+    await refreshMap();
     const scanning = hdrInfo.textContent.includes('スキャン進行中');
-    _autoLoadTimer = setTimeout(scheduleAutoLoad, 600000); // 地図本体は10分ごと（/blocks8 は大きいので頻繁に読まない）
+    _autoLoadTimer = setTimeout(scheduleAutoLoad, 15000); // 15タイルずつ、15秒ごと
   }
   updateProgress(); setInterval(updateProgress, 10000);
   scheduleAutoLoad();
