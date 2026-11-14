@@ -1047,9 +1047,13 @@ async function loadTiles() {
   }
   _shownIndex = tour.index || 0;
   // 地点 k のタイルは、tour.index が k より大きくなったら完了（done のときは全部）
-  const upto = tour.done ? tour.total : Math.max(0, tour.index || 0);
+  // 完了しているのは、上から top より前（0〜top-1）と、下から bottom より後（bottom+1〜）
+  const top = tour.top ?? (tour.index || 0);
+  const bottom = tour.bottom ?? (tour.total - 1);
+  const isDone = k => tour.done || k < top || k > bottom;
   const todo = [];
-  for (let k = 0; k < upto && todo.length < MAX_TILES_PER_CYCLE; k++) {
+  for (let k = 0; k < tour.total && todo.length < MAX_TILES_PER_CYCLE; k++) {
+    if (!isDone(k)) continue;
     const name = String(k).padStart(4, '0');
     if (!_loadedTiles.has(name)) todo.push(name);
   }
