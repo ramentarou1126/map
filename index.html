@@ -368,28 +368,29 @@ function scheduleDrawChunks() {
   _drawChunksRaf = requestAnimationFrame(() => { _drawChunksRaf = null; drawChunks(); });
 }
 
-/** 未描画の 8×8 マスに、マスの線を引く（ズームして1マスが4px以上のときだけ） */
+/** 赤（未描画）のときだけ、未描画のチャンク（16×16）に黒い線を引く。青のときは線を出さない */
 function drawCellGrid(ctx) {
-  if (!_tourActive) return;
-  const cs = CELL8 * view.scale;                 // 1マスの画面上の大きさ（px）
-  // 小さすぎる表示では、線どうしが3px以上離れるように間引く（見えなくならないように）
-  const step = Math.max(1, Math.ceil(3 / cs));
+  if (!_tourActive || _unpaintMode !== 'red') return;
+  const unit = 2;                                  // 16ブロック = 8×8セルが2×2（チャンク）
+  const cs = CELL8 * unit * view.scale;            // 1チャンクの画面上の大きさ（px）
+  const step = Math.max(1, Math.ceil(3 / cs));     // 線どうしが3px以上離れるように間引く（チャンク単位）
   const size = cs * step;
   const W = chunkCanvas.width, H = chunkCanvas.height;
   const mcX0 = MAP_BOUNDS.x1 + (0 - view.x) / view.scale, mcX1 = MAP_BOUNDS.x1 + (W - view.x) / view.scale;
   const mcZ0 = MAP_BOUNDS.z1 + (0 - view.y) / view.scale, mcZ1 = MAP_BOUNDS.z1 + (H - view.y) / view.scale;
-  const cx0 = Math.max(C_X1, Math.floor(mcX0 / CELL8)), cx1 = Math.min(C_X1 + C_W - 1, Math.floor(mcX1 / CELL8));
-  const cz0 = Math.max(C_Z1, Math.floor(mcZ0 / CELL8)), cz1 = Math.min(C_Z1 + C_H - 1, Math.floor(mcZ1 / CELL8));
+  const alignEven = v => v - (((v % 2) + 2) % 2);  // チャンクの境目（偶数のセル番号）に揃える
+  const cx0 = alignEven(Math.max(C_X1, Math.floor(mcX0 / CELL8))), cx1 = Math.min(C_X1 + C_W - 1, Math.floor(mcX1 / CELL8));
+  const cz0 = alignEven(Math.max(C_Z1, Math.floor(mcZ0 / CELL8))), cz1 = Math.min(C_Z1 + C_H - 1, Math.floor(mcZ1 / CELL8));
   ctx.beginPath();
-  for (let cx = cx0; cx <= cx1; cx += step) {
-    for (let cz = cz0; cz <= cz1; cz += step) {
-      if (_painted[(cz - C_Z1) * C_W + (cx - C_X1)]) continue;   // 描画済みには線を引かない
+  for (let cx = cx0; cx <= cx1; cx += unit * step) {
+    for (let cz = cz0; cz <= cz1; cz += unit * step) {
+      if (_painted[(cz - C_Z1) * C_W + (cx - C_X1)]) continue;   // 描画済みのチャンクには線を引かない
       const x = view.x + (cx * CELL8 - MAP_BOUNDS.x1) * view.scale;
       const z = view.y + (cz * CELL8 - MAP_BOUNDS.z1) * view.scale;
       ctx.rect(x, z, size, size);
     }
   }
-  ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+  ctx.strokeStyle = 'rgba(0,0,0,0.6)';
   ctx.globalAlpha = 1;
   ctx.lineWidth = 1;
   ctx.stroke();
@@ -1043,6 +1044,7 @@ cellModeBtn.addEventListener('click', () => {
   _unpaintMode = _unpaintMode === 'red' ? 'blue' : 'red';
   applyCellModeUI();
   if (_tourActive) { flushCellCanvas(); showCellMap(); }
+  scheduleDrawChunks();
 });      // 前回表示した巡回の位置（戻ったら描き直す）
 let _fullLoadAt = 0;      // 巡回外の従来表示を最後に読んだ時刻（重いので10分に1回）
 let _fitted = false;
@@ -1080,6 +1082,11 @@ function flushCellCanvas() {
   const [ur, ug, ub] = UNPAINT_COLORS[_unpaintMode];
   for (let i = 0, p = 0; i < _painted.length; i++, p += 4) {
     if (_painted[i]) continue;
+    if (_unpaintMode === 'red') {
+      // 旧「ブロック未読込」と同じ、半透明の赤（rgba(192,57,43,0.45)）
+      d[p] = 192; d[p+1] = 57; d[p+2] = 43; d[p+3] = 115;
+      continue;
+    }
     d[p] = ur; d[p+1] = ug; d[p+2] = ub; d[p+3] = 255;
   }
   _cellCtx.putImageData(_cellImg, 0, 0);
