@@ -1069,7 +1069,7 @@ async function loadTiles() {
     });
   }
   // 巡回の外で読んだデータ（manual）は10分ごとに読む
-  if (Date.now() - _manualAt > 600000) {
+  if (Date.now() - _manualAt > 300000) {   // 巡回の外で歩いた分は5分に1回
     _manualAt = Date.now();
     paintTile(await fbGet('/blocks8/data/manual'));
     changed = true;
