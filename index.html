@@ -1121,7 +1121,10 @@ const RELOAD_EVERY_CELLS = 300;          // サーバーが300セル送るたび
  * 旧16×16は表示しない。戻り値 false = 8×8が無い（従来の表示へ）
  */
 async function loadTiles() {
-  if (!_latestMeta) return _blocks8Active;
+  if (!_latestMeta) {
+    try { _latestMeta = await fbGet('/blocks8/meta'); } catch (e) { return _blocks8Active; }
+    if (!_latestMeta) return false;
+  }
   const sent = Number(_latestMeta.sentCells || 0);
   const ch = Number(_latestMeta.changeAt || 0);
   const first = _seenSent < 0;
