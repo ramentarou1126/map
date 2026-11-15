@@ -1110,37 +1110,37 @@ function paintOld(chunks) {
   paintTile(cells);
 }
 
-let _oldBlocks = null, _oldAt = 0;   // 旧16×16データ（10分に1回）
-let _manualCells = null, _manualAt2 = 0; // 8×8の手動データ（5分に1回）
+let _manualCells = null;
+let _latestMeta = null;                  // /blocks8/meta（updateProgress が10秒ごとに更新）
+let _seenSent = -1, _seenChangeAt = -1;  // 最後に読んだときの meta の値
+const RELOAD_EVERY_CELLS = 300;          // サーバーが300セル送るたびに読み直す
 
 /**
- * 旧16×16（/blocks）と 8×8の手動（/blocks8/data/manual）を読み、色の板を作り直す。
- * 8×8は旧16×16の上に重ねる（8×8のある場所は8×8の色）。削除も作り直しで反映される。
- * 戻り値 false = どちらも無い（従来の表示へ）
+ * 8×8の手動（/blocks8/data/manual）を読み、色の板を作り直す。
+ * 読むのは次のときだけ：①初回 ②サーバーが300セル送った ③削除などがあった ④カウントが戻った（再起動）。
+ * 旧16×16は表示しない。戻り値 false = 8×8が無い（従来の表示へ）
  */
 async function loadTiles() {
-  const now = Date.now();
-  let changed = false;
-  if (now - _oldAt > 600000) {
-    _oldAt = now;
-    try { _oldBlocks = await fbGet('/blocks/data'); } catch (e) { console.error('old load', e); }
-    changed = true;
-  }
-  if (now - _manualAt2 > 300000) {
-    _manualAt2 = now;
-    try { _manualCells = await fbGet('/blocks8/data/manual'); } catch (e) { console.error('manual load', e); }
-    changed = true;
-  }
-  if (!changed) return _blocks8Active;
-  const hasOld = !!(_oldBlocks && Object.keys(_oldBlocks).length);
+  if (!_latestMeta) return _blocks8Active;
+  const sent = Number(_latestMeta.sentCells || 0);
+  const ch = Number(_latestMeta.changeAt || 0);
+  const first = _seenSent < 0;
+  const reset = sent < _seenSent;
+  const enough = sent - _seenSent >= RELOAD_EVERY_CELLS;
+  const changed = ch !== _seenChangeAt;
+  if (!(first || reset || enough || changed)) return _blocks8Active;
+
+  // 旧16×16（/blocks）は表示しない（読まない）。8×8（manual）だけを描く
+  _manualCells = await fbGet('/blocks8/data/manual');
+  _seenSent = sent; _seenChangeAt = ch;
+
   const hasManual = !!(_manualCells && Object.keys(_manualCells).length);
-  _blocks8Active = hasOld || hasManual;
+  _blocks8Active = hasManual;
   if (!_blocks8Active) return false;
   _cellCtx.fillStyle = '#3c6fa8'; _cellCtx.fillRect(0, 0, C_W, C_H);
   _cellImg = _cellCtx.getImageData(0, 0, C_W, C_H);
   _painted.fill(0);
-  if (hasOld) paintOld(_oldBlocks);
-  if (hasManual) paintTile(_manualCells);   // 8×8を後から描いて上書き
+  paintTile(_manualCells);
   flushCellCanvas(); showCellMap();
   return true;
 }
@@ -1168,6 +1168,7 @@ const _progEl = (() => {
 async function updateProgress() {
   try {
     const meta = await fbGet('/blocks8/meta');
+    if (meta) _latestMeta = meta;
     if (!meta) { _progEl.textContent = '8×8データ：まだありません'; return; }
     const parts = [];
     parts.push(meta.status === 'stopped' || meta.status === 'manual' ? '8×8（手動）' : '8×8');
