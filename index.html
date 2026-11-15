@@ -370,7 +370,7 @@ function scheduleDrawChunks() {
 
 /** 赤（未描画）のときだけ、未描画のチャンク（16×16）に黒い線を引く。青のときは線を出さない */
 function drawCellGrid(ctx) {
-  if (!_tourActive || _unpaintMode !== 'red') return;
+  if (!_blocks8Active || _unpaintMode !== 'red') return;
   const unit = 2;                                  // 16ブロック = 8×8セルが2×2（チャンク）
   const cs = CELL8 * unit * view.scale;            // 1チャンクの画面上の大きさ（px）
   const step = Math.max(1, Math.ceil(3 / cs));     // 線どうしが3px以上離れるように間引く（チャンク単位）
@@ -1026,12 +1026,10 @@ _cellCanvas.width = C_W; _cellCanvas.height = C_H;
 const _cellCtx = _cellCanvas.getContext('2d');
 _cellCtx.fillStyle = '#3c6fa8'; _cellCtx.fillRect(0, 0, C_W, C_H);
 let _cellImg = _cellCtx.getImageData(0, 0, C_W, C_H);   // 未描画 = 初期の青
-const _loadedTiles = new Set();
 const _painted = new Uint8Array(C_W * C_H);      // 1 = 描画済み（地形の色が入っている）
 const UNPAINT_COLORS = { blue: [0x3c, 0x6f, 0xa8], red: [0xc0, 0x39, 0x2b] };
 let _unpaintMode = 'blue';                       // 未描画の色: blue / red
-let _tourActive = false;                         // 巡回のデータがあるとき true（段々表示の対象）
-let _shownIndex = 0;
+let _blocks8Active = false;                      // 8×8の手動データがあるとき true
 const cellModeBtn = document.getElementById('cell-mode-btn');
 function applyCellModeUI() {
   const red = _unpaintMode === 'red';
@@ -1043,14 +1041,11 @@ applyCellModeUI();
 cellModeBtn.addEventListener('click', () => {
   _unpaintMode = _unpaintMode === 'red' ? 'blue' : 'red';
   applyCellModeUI();
-  if (_tourActive) { flushCellCanvas(); showCellMap(); }
+  if (_blocks8Active) { flushCellCanvas(); showCellMap(); }
   scheduleDrawChunks();
 });      // 前回表示した巡回の位置（戻ったら描き直す）
 let _fullLoadAt = 0;      // 巡回外の従来表示を最後に読んだ時刻（重いので10分に1回）
 let _fitted = false;
-let _manualAt = 0;
-const MAX_TILES_PER_CYCLE = 15;   // 1回の更新で読むタイル数
-const TILE_PARALLEL = 8;           // 同時に読む数
 
 function paintTile(cells) {
   if (!cells) return;
@@ -1100,48 +1095,53 @@ function showCellMap() {
   mapImg.src = _cellCanvas.toDataURL('image/png');
 }
 
-/** /blocks8/tour があれば段々表示。戻り値 false = 巡回データが無い（従来の表示へ） */
+/** 旧16×16データ（/blocks/data）を、2×2のセルとして描く（8×8のデータが無い場所に表示される） */
+function paintOld(chunks) {
+  const cells = {};
+  for (const [key, val] of Object.entries(chunks)) {
+    const u = key.lastIndexOf('_'); if (u < 0) continue;
+    const bx = parseInt(key.slice(0, u)), bz = parseInt(key.slice(u + 1));
+    if (isNaN(bx) || isNaN(bz)) continue;
+    const x0 = bx - 8, z0 = bz - 8;   // 16×16 の左上の角
+    for (let dx = 0; dx < 2; dx++) for (let dz = 0; dz < 2; dz++) {
+      cells[`${x0 + dx * 8 + 4}_${z0 + dz * 8 + 4}`] = val;
+    }
+  }
+  paintTile(cells);
+}
+
+let _oldBlocks = null, _oldAt = 0;   // 旧16×16データ（10分に1回）
+let _manualCells = null, _manualAt2 = 0; // 8×8の手動データ（5分に1回）
+
+/**
+ * 旧16×16（/blocks）と 8×8の手動（/blocks8/data/manual）を読み、色の板を作り直す。
+ * 8×8は旧16×16の上に重ねる（8×8のある場所は8×8の色）。削除も作り直しで反映される。
+ * 戻り値 false = どちらも無い（従来の表示へ）
+ */
 async function loadTiles() {
-  const tour = await fbGet('/blocks8/tour');
-  if (!tour || !tour.total) { _tourActive = false; return false; }
-  _tourActive = true;
-  if ((tour.index || 0) < _shownIndex) {
-    // 巡回をやり直した（reset）→ 色を青に戻して、読み直す
-    _cellCtx.fillStyle = '#3c6fa8'; _cellCtx.fillRect(0, 0, C_W, C_H);
-    _cellImg = _cellCtx.getImageData(0, 0, C_W, C_H);
-    _loadedTiles.clear();
-    _painted.fill(0);
-  }
-  _shownIndex = tour.index || 0;
-  // 地点 k のタイルは、tour.index が k より大きくなったら完了（done のときは全部）
-  // 完了しているのは、上から top より前（0〜top-1）と、下から bottom より後（bottom+1〜）
-  const top = tour.top ?? (tour.index || 0);
-  const bottom = tour.bottom ?? (tour.total - 1);
-  const isDone = k => tour.done || k < top || k > bottom;
-  const todo = [];
-  for (let k = 0; k < tour.total && todo.length < MAX_TILES_PER_CYCLE; k++) {
-    if (!isDone(k)) continue;
-    const name = String(k).padStart(4, '0');
-    if (!_loadedTiles.has(name)) todo.push(name);
-  }
+  const now = Date.now();
   let changed = false;
-  for (let i = 0; i < todo.length; i += TILE_PARALLEL) {
-    const part = todo.slice(i, i + TILE_PARALLEL);
-    const datas = await Promise.all(part.map(name => fbGet(`/blocks8/data/${name}`).catch(() => undefined)));
-    part.forEach((name, j) => {
-      if (datas[j] === undefined) return;   // 失敗したタイルは次の周期で再試行
-      paintTile(datas[j]);
-      _loadedTiles.add(name);
-      changed = true;
-    });
-  }
-  // 巡回の外で読んだデータ（manual）は10分ごとに読む
-  if (Date.now() - _manualAt > 300000) {   // 巡回の外で歩いた分は5分に1回
-    _manualAt = Date.now();
-    paintTile(await fbGet('/blocks8/data/manual'));
+  if (now - _oldAt > 600000) {
+    _oldAt = now;
+    try { _oldBlocks = await fbGet('/blocks/data'); } catch (e) { console.error('old load', e); }
     changed = true;
   }
-  if (changed) { flushCellCanvas(); showCellMap(); }
+  if (now - _manualAt2 > 300000) {
+    _manualAt2 = now;
+    try { _manualCells = await fbGet('/blocks8/data/manual'); } catch (e) { console.error('manual load', e); }
+    changed = true;
+  }
+  if (!changed) return _blocks8Active;
+  const hasOld = !!(_oldBlocks && Object.keys(_oldBlocks).length);
+  const hasManual = !!(_manualCells && Object.keys(_manualCells).length);
+  _blocks8Active = hasOld || hasManual;
+  if (!_blocks8Active) return false;
+  _cellCtx.fillStyle = '#3c6fa8'; _cellCtx.fillRect(0, 0, C_W, C_H);
+  _cellImg = _cellCtx.getImageData(0, 0, C_W, C_H);
+  _painted.fill(0);
+  if (hasOld) paintOld(_oldBlocks);
+  if (hasManual) paintTile(_manualCells);   // 8×8を後から描いて上書き
+  flushCellCanvas(); showCellMap();
   return true;
 }
 
@@ -1157,7 +1157,7 @@ async function refreshMap() {
   await autoLoadBlockMap();
 }
 
-// ── 進捗表示（画面左下。/blocks8/meta と /blocks8/tour だけを読む＝軽い） ──
+// ── 進捗表示（画面左下。/blocks8/meta だけを読む＝軽い） ──
 const _progEl = (() => {
   const d = document.createElement('div');
   d.id = 'blocks8-progress';
@@ -1167,18 +1167,11 @@ const _progEl = (() => {
 })();
 async function updateProgress() {
   try {
-    const [meta, tour] = await Promise.all([fbGet('/blocks8/meta'), fbGet('/blocks8/tour')]);
-    if (!meta && !tour) { _progEl.textContent = '自動レンダリング：まだデータがありません'; return; }
+    const meta = await fbGet('/blocks8/meta');
+    if (!meta) { _progEl.textContent = '8×8データ：まだありません'; return; }
     const parts = [];
-    if (meta) {
-      parts.push(meta.status === 'complete' ? '✅ 完成' : '⏳ 作成中');
-      if (meta.totalCells) parts.push(`セル数 ${Number(meta.totalCells).toLocaleString()}`);
-    }
-    if (tour && tour.total) {
-      const pct = Math.floor((tour.index / tour.total) * 100);
-      const state = tour.done ? '完了' : (tour.running ? '巡回中' : '停止中');
-      parts.push(`巡回 ${state}: ${tour.index} / ${tour.total}（${pct}%）`);
-    }
+    parts.push(meta.status === 'stopped' || meta.status === 'manual' ? '8×8（手動）' : '8×8');
+    if (meta.totalCells) parts.push(`セル数 ${Number(meta.totalCells).toLocaleString()}`);
     _progEl.textContent = parts.join(' ／ ');
   } catch (e) {
     _progEl.textContent = '進捗の取得に失敗: ' + e.message;
