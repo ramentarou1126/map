@@ -158,10 +158,17 @@ input[type=number]{background:#0a0d08;border:2px solid var(--panel-border);color
 'use strict';
 
 const FIREBASE_URL = 'https://map.hp7vvyvc25.workers.dev';
-async function fbGet(path) {
-  const res = await fetch(`${FIREBASE_URL}${path}.json`);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+// 読み取り（タイムアウトあり。返事が来ないまま止まると、地図の更新が止まるため）
+async function fbGet(path, ms = 20000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  try {
+    const res = await fetch(`${FIREBASE_URL}${path}.json`, { signal: ctrl.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 const MAP_BOUNDS = { x1: -9215, z1: -4607, x2: 9215, z2: 4607 };
@@ -1106,11 +1113,13 @@ async function loadTiles() {
   return true;
 }
 
+let _loadErr = '';   // 8×8の読み込みに失敗したときの内容（進捗表示に出す）
 async function refreshMap() {
   try {
-    if (await loadTiles()) return;
+    if (await loadTiles()) { _loadErr = ''; return; }
   } catch (e) {
     console.error('loadTiles error:', e);
+    _loadErr = e.message || String(e);
   }
   // 巡回データが無いときの従来表示は全件を読むので重い。10分に1回だけ
   if (Date.now() - _fullLoadAt < 600000) return;
@@ -1134,7 +1143,7 @@ async function updateProgress() {
     const parts = [];
     parts.push(meta.status === 'stopped' || meta.status === 'manual' ? '8×8（手動）' : '8×8');
     if (meta.totalCells) parts.push(`セル数 ${Number(meta.totalCells).toLocaleString()}`);
-    _progEl.textContent = parts.join(' ／ ');
+    _progEl.textContent = parts.join(' ／ ') + (_loadErr ? '　※読み込み失敗: ' + _loadErr : '');
   } catch (e) {
     _progEl.textContent = '進捗の取得に失敗: ' + e.message;
   }
@@ -1157,7 +1166,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setLive(true); // プレイヤー位置表示は最初からON
   let _autoLoadTimer = null;
   async function scheduleAutoLoad() {
-    await refreshMap();
+    try { await refreshMap(); } catch (e) { console.error('refreshMap', e); }
     const scanning = hdrInfo.textContent.includes('スキャン進行中');
     _autoLoadTimer = setTimeout(scheduleAutoLoad, 15000); // 15タイルずつ、15秒ごと
   }
