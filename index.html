@@ -1011,6 +1011,7 @@ _cellCtx.fillStyle = '#3c6fa8'; _cellCtx.fillRect(0, 0, C_W, C_H);
 let _cellImg = _cellCtx.getImageData(0, 0, C_W, C_H);   // 未描画 = 初期の青
 const _painted = new Uint8Array(C_W * C_H);      // 1 = 描画済み（地形の色が入っている）
 const UNPAINT_BLUE = [0x3c, 0x6f, 0xa8];           // 未描画 = 青（赤モードは無し）
+let _blocks8Active = false;                      // 8×8の手動データがあるとき true
       // 前回表示した巡回の位置（戻ったら描き直す）
 let _fullLoadAt = 0;      // 巡回外の従来表示を最後に読んだ時刻（重いので10分に1回）
 let _fitted = false;
