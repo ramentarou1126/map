@@ -4,8 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>麺Earth MAP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+JP:wght@400;700;900&display=swap" media="print" onload="this.media='all'">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+JP:wght@400;700;900&display=swap');
+
 :root{
   --grass:#6fae3e;--grass-dark:#4f7f2c;--dirt-dark:#5c4a33;--stone:#8a8a8a;
   --stone-dark:#545454;--obsidian:#0d0f0d;--panel-bg:#1a1d16;--panel-border:#3a3f2e;
@@ -89,8 +92,6 @@ input[type=number]{background:#0a0d08;border:2px solid var(--panel-border);color
 @keyframes liveBlink{0%,100%{opacity:1}50%{opacity:.3}}
 #border-toggle-btn{position:absolute;left:12px;bottom:185px;z-index:25;width:44px;height:44px;font-size:18px;background:var(--stone);border-top:3px solid #c9c9c9;border-left:3px solid #c9c9c9;border-right:3px solid #4a4a4a;border-bottom:3px solid #4a4a4a;cursor:pointer;display:flex;align-items:center;justify-content:center;user-select:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:background .15s}
 #border-toggle-btn.active{background:#2a5c1a;border-top-color:#6fae3e;border-left-color:#6fae3e;border-right-color:#1a3a0a;border-bottom-color:#1a3a0a;box-shadow:0 0 10px rgba(111,174,62,.5)}
-#cell-mode-btn{position:absolute;left:12px;bottom:240px;z-index:25;width:44px;height:44px;font-size:18px;background:var(--stone);border-top:3px solid #c9c9c9;border-left:3px solid #c9c9c9;border-right:3px solid #4a4a4a;border-bottom:3px solid #4a4a4a;cursor:pointer;display:flex;align-items:center;justify-content:center;user-select:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
-#cell-mode-btn.red{background:#7a1f16;border-top-color:#e0685a;border-left-color:#e0685a}
 #border-toggle-btn:active{border-top-color:#4a4a4a;border-left-color:#4a4a4a;border-right-color:#c9c9c9;border-bottom-color:#c9c9c9}
 </style>
 </head>
@@ -115,7 +116,6 @@ input[type=number]{background:#0a0d08;border:2px solid var(--panel-border);color
       <button type="button" class="zoom-btn" id="zoom-out">&minus;</button>
     </div>
     <button type="button" id="border-toggle-btn" title="国境オン/オフ">🗺</button>
-    <button type="button" id="cell-mode-btn" title="未描画: 青">🟦</button>
   </div>
 
   <div id="panel">
@@ -368,38 +368,9 @@ function scheduleDrawChunks() {
   _drawChunksRaf = requestAnimationFrame(() => { _drawChunksRaf = null; drawChunks(); });
 }
 
-/** 赤（未描画）のときだけ、未描画のチャンク（16×16）に黒い線を引く。青のときは線を出さない */
-function drawCellGrid(ctx) {
-  if (!_blocks8Active || _unpaintMode !== 'red') return;
-  const unit = 2;                                  // 16ブロック = 8×8セルが2×2（チャンク）
-  const cs = CELL8 * unit * view.scale;            // 1チャンクの画面上の大きさ（px）
-  const step = Math.max(1, Math.ceil(3 / cs));     // 線どうしが3px以上離れるように間引く（チャンク単位）
-  const size = cs * step;
-  const W = chunkCanvas.width, H = chunkCanvas.height;
-  const mcX0 = MAP_BOUNDS.x1 + (0 - view.x) / view.scale, mcX1 = MAP_BOUNDS.x1 + (W - view.x) / view.scale;
-  const mcZ0 = MAP_BOUNDS.z1 + (0 - view.y) / view.scale, mcZ1 = MAP_BOUNDS.z1 + (H - view.y) / view.scale;
-  const alignEven = v => v - (((v % 2) + 2) % 2);  // チャンクの境目（偶数のセル番号）に揃える
-  const cx0 = alignEven(Math.max(C_X1, Math.floor(mcX0 / CELL8))), cx1 = Math.min(C_X1 + C_W - 1, Math.floor(mcX1 / CELL8));
-  const cz0 = alignEven(Math.max(C_Z1, Math.floor(mcZ0 / CELL8))), cz1 = Math.min(C_Z1 + C_H - 1, Math.floor(mcZ1 / CELL8));
-  ctx.beginPath();
-  for (let cx = cx0; cx <= cx1; cx += unit * step) {
-    for (let cz = cz0; cz <= cz1; cz += unit * step) {
-      if (_painted[(cz - C_Z1) * C_W + (cx - C_X1)]) continue;   // 描画済みのチャンクには線を引かない
-      const x = view.x + (cx * CELL8 - MAP_BOUNDS.x1) * view.scale;
-      const z = view.y + (cz * CELL8 - MAP_BOUNDS.z1) * view.scale;
-      ctx.rect(x, z, size, size);
-    }
-  }
-  ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-  ctx.globalAlpha = 1;
-  ctx.lineWidth = 1;
-  ctx.stroke();
-}
-
 function drawChunks() {
   const ctx = chunkCanvas.getContext('2d');
   ctx.clearRect(0, 0, chunkCanvas.width, chunkCanvas.height);
-  drawCellGrid(ctx);
 
   const mode = BORDER_MODES[borderModeIdx];
   if (mode.key === 'outer') {
@@ -842,7 +813,12 @@ function updateLiveMarkerPositions() {
 function hasPosition(p) {
   return p && typeof p.x === 'number' && typeof p.z === 'number' && !p.invisible;
 }
-function isOnlinePlayer(p) { return p && p.online !== false; }
+// サーバーが止まると /players は更新されない。最後の更新から2分以上たったら「オフライン」扱い
+const PLAYER_STALE_MS = 120000;
+function isOnlinePlayer(p) {
+  if (!p || p.online === false) return false;
+  return typeof p.t === 'number' && Date.now() - p.t < PLAYER_STALE_MS;
+}
 
 function buildPlayerListItem(id, p) {
   const item = document.createElement('div'); item.className = 'live-list-item';
@@ -1027,23 +1003,8 @@ const _cellCtx = _cellCanvas.getContext('2d');
 _cellCtx.fillStyle = '#3c6fa8'; _cellCtx.fillRect(0, 0, C_W, C_H);
 let _cellImg = _cellCtx.getImageData(0, 0, C_W, C_H);   // 未描画 = 初期の青
 const _painted = new Uint8Array(C_W * C_H);      // 1 = 描画済み（地形の色が入っている）
-const UNPAINT_COLORS = { blue: [0x3c, 0x6f, 0xa8], red: [0xc0, 0x39, 0x2b] };
-let _unpaintMode = 'blue';                       // 未描画の色: blue / red
-let _blocks8Active = false;                      // 8×8の手動データがあるとき true
-const cellModeBtn = document.getElementById('cell-mode-btn');
-function applyCellModeUI() {
-  const red = _unpaintMode === 'red';
-  cellModeBtn.textContent = red ? '🟥' : '🟦';
-  cellModeBtn.title = red ? '未描画: 赤' : '未描画: 青';
-  cellModeBtn.classList.toggle('red', red);
-}
-applyCellModeUI();
-cellModeBtn.addEventListener('click', () => {
-  _unpaintMode = _unpaintMode === 'red' ? 'blue' : 'red';
-  applyCellModeUI();
-  if (_blocks8Active) { flushCellCanvas(); showCellMap(); }
-  scheduleDrawChunks();
-});      // 前回表示した巡回の位置（戻ったら描き直す）
+const UNPAINT_BLUE = [0x3c, 0x6f, 0xa8];           // 未描画 = 青（赤モードは無し）
+      // 前回表示した巡回の位置（戻ったら描き直す）
 let _fullLoadAt = 0;      // 巡回外の従来表示を最後に読んだ時刻（重いので10分に1回）
 let _fitted = false;
 
@@ -1072,16 +1033,11 @@ function paintTile(cells) {
 }
 
 function flushCellCanvas() {
-  // 未描画のマスだけ、今のモードの色にする（描画済みの地形はそのまま）
+  // 未描画のマスだけ青にする（描画済みの地形はそのまま）
   const d = _cellImg.data;
-  const [ur, ug, ub] = UNPAINT_COLORS[_unpaintMode];
+  const [ur, ug, ub] = UNPAINT_BLUE;
   for (let i = 0, p = 0; i < _painted.length; i++, p += 4) {
     if (_painted[i]) continue;
-    if (_unpaintMode === 'red') {
-      // 旧「ブロック未読込」と同じ、半透明の赤（rgba(192,57,43,0.45)）
-      d[p] = 192; d[p+1] = 57; d[p+2] = 43; d[p+3] = 115;
-      continue;
-    }
     d[p] = ur; d[p+1] = ug; d[p+2] = ub; d[p+3] = 255;
   }
   _cellCtx.putImageData(_cellImg, 0, 0);
@@ -1189,7 +1145,9 @@ window.addEventListener('resize', () => {
 });
 
 window.addEventListener('resize', () => fitView());
-window.addEventListener('load', () => {
+// 'load'（フォントや画像をすべて待つ）ではなく DOMContentLoaded で始める＝すぐ表示する
+document.addEventListener('DOMContentLoaded', () => {
+  hdrInfo.textContent = '読み込み中…';
   fitView();
   fetchChunkData(); setInterval(fetchChunkData, 10000);
   document.getElementById('live-player-list').style.display = 'flex';
