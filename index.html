@@ -1068,7 +1068,7 @@ function paintOld(chunks) {
 
 let _manualCells = null;
 let _latestMeta = null;                  // /blocks8/meta（updateProgress が10秒ごとに更新）
-let _seenSent = -1, _seenChangeAt = -1;  // 最後に読んだときの meta の値
+let _seenSent = -1, _seenChangeAt = -1, _seenStatus = null;  // 最後に読んだときの meta の値
 const RELOAD_EVERY_CELLS = 300;          // サーバーが300セル送るたびに読み直す
 
 /**
@@ -1087,11 +1087,13 @@ async function loadTiles() {
   const reset = sent < _seenSent;
   const enough = sent - _seenSent >= RELOAD_EVERY_CELLS;
   const changed = ch !== _seenChangeAt;
-  if (!(first || reset || enough || changed)) return _blocks8Active;
+  // スキャンが終わった（stopped）ときも読む。少ない量（300セル未満）でも反映されるように
+  const stopped = _latestMeta.status === 'stopped' && _seenStatus !== 'stopped';
+  if (!(first || reset || enough || changed || stopped)) return _blocks8Active;
 
   // 旧16×16（/blocks）は表示しない（読まない）。8×8（manual）だけを描く
   _manualCells = await fbGet('/blocks8/data/manual');
-  _seenSent = sent; _seenChangeAt = ch;
+  _seenSent = sent; _seenChangeAt = ch; _seenStatus = _latestMeta.status || null;
 
   const hasManual = !!(_manualCells && Object.keys(_manualCells).length);
   _blocks8Active = hasManual;
